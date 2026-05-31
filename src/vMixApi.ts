@@ -33,6 +33,14 @@ export class VMixController {
           shortTitle: inputNode.getAttribute('shortTitle') || inputNode.getAttribute('title') || '',
           state: inputNode.getAttribute('state') || '',
           muted: inputNode.getAttribute('muted') === 'True',
+          volume: parseFloat(inputNode.getAttribute('volume') || '100'),
+          duration: parseInt(inputNode.getAttribute('duration') || '0', 10),
+          position: parseInt(inputNode.getAttribute('position') || '0', 10),
+          textFields: Array.from(inputNode.querySelectorAll('text')).map(t => ({
+             index: t.getAttribute('index') || '',
+             name: t.getAttribute('name') || '',
+             value: t.textContent || ''
+          })),
         });
       });
 

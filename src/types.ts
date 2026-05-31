@@ -6,6 +6,10 @@ export interface VMixInput {
   shortTitle: string;
   state: string;
   muted: boolean;
+  volume: number;
+  duration: number;
+  position: number;
+  textFields: { index: string; name: string; value: string }[];
 }
 
 export interface VMixOverlay {

@@ -1,6 +1,6 @@
 import React from 'react';
 import { VMixInput } from '../types';
-import { Play, Pause, VolumeX } from 'lucide-react';
+import { Play, Pause, VolumeX, Volume2, RotateCcw } from 'lucide-react';
 
 interface Props {
   input: VMixInput;
@@ -8,9 +8,10 @@ interface Props {
   isPreview: boolean;
   onClick: () => void;
   onDirectCut: () => void;
+  onCommand: (func: string, value?: string) => void;
 }
 
-export function InputCard({ input, isActive, isPreview, onClick, onDirectCut }: Props) {
+export function InputCard({ input, isActive, isPreview, onClick, onDirectCut, onCommand }: Props) {
   let borderColor = 'border-transparent';
   let numberColor = 'text-gray-300';
   let pgmBg = 'bg-[#333]';
@@ -30,21 +31,44 @@ export function InputCard({ input, isActive, isPreview, onClick, onDirectCut }: 
     pvwBorder = 'border border-green-600/30';
   }
 
+  const handleMute = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onCommand('Audio');
+  };
+
+  const handlePlayPause = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onCommand('PlayPause');
+  };
+
+  const handleRestart = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onCommand('Restart');
+  };
+
   return (
     <div 
       className={`relative bg-[#252525] border-t-2 ${borderColor} rounded overflow-hidden p-1 flex flex-col h-24 hover:bg-[#2c2c2c] transition-colors`}
       onClick={onClick}
     >
       <div className="flex justify-between items-center px-1 mb-1 shrink-0">
-        <div className="flex items-center space-x-1">
-           <span className={`text-[9px] font-bold ${numberColor}`}>{input.number}</span>
-           <div className="flex space-x-0.5">
-             {input.muted && <VolumeX size={10} className="text-red-400" />}
-             {input.state === 'Running' && <Play size={10} className="text-green-400" />}
-             {input.state === 'Paused' && <Pause size={10} className="text-yellow-400" />}
-           </div>
+        <div className="flex items-center space-x-1 relative z-20">
+           <span className={`text-[9px] font-bold ${numberColor} mr-1`}>{input.number}</span>
+           <button onClick={handleMute} className="hover:text-white" title="Toggle Audio">
+             {input.muted ? <VolumeX size={10} className="text-red-400" /> : <Volume2 size={10} className="text-green-500" />}
+           </button>
+           {['Running', 'Paused'].includes(input.state) && (
+             <>
+                <button onClick={handlePlayPause} className="hover:text-white" title="Play/Pause">
+                  {input.state === 'Running' ? <Pause size={10} className="text-yellow-400" /> : <Play size={10} className="text-green-400" />}
+                </button>
+                <button onClick={handleRestart} className="hover:text-white" title="Restart">
+                  <RotateCcw size={10} className="text-blue-400" />
+                </button>
+             </>
+           )}
         </div>
-        <span className="text-[8px] opacity-50 uppercase truncate max-w-[50%]">{input.type}</span>
+        <span className="text-[8px] opacity-50 uppercase truncate max-w-[40%]">{input.type}</span>
       </div>
       
       <div 
@@ -57,8 +81,19 @@ export function InputCard({ input, isActive, isPreview, onClick, onDirectCut }: 
         <div className="text-[10px] font-bold text-center line-clamp-2 break-all group-hover:opacity-20 transition-opacity italic title-font" title={input.title}>
           {input.shortTitle}
         </div>
+        
+        {/* Progress Bar for Media */}
+        {input.duration > 0 && (
+           <div className="absolute bottom-0 left-0 right-0 h-1 bg-black/60 z-10 w-full mb-0.5 pointer-events-none">
+              <div 
+                className="h-full bg-blue-500" 
+                style={{ width: `${(input.position / input.duration) * 100}%` }}
+              ></div>
+           </div>
+        )}
+
         <div 
-           className="absolute inset-0 bg-red-600/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+           className="absolute inset-0 bg-red-600/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20"
            onClick={(e) => {
              e.stopPropagation();
              onDirectCut();
