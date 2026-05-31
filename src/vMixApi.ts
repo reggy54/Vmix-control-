@@ -22,6 +22,8 @@ export class VMixController {
       const version = xml.querySelector('version')?.textContent || 'Unknown';
       const recording = xml.querySelector('recording')?.textContent === 'True';
       const streaming = xml.querySelector('streaming')?.textContent === 'True';
+      const external = xml.querySelector('external')?.textContent === 'True';
+      const multiCorder = xml.querySelector('multiCorder')?.textContent === 'True';
 
       const inputs: VMixInput[] = [];
       xml.querySelectorAll('input').forEach((inputNode) => {
@@ -52,7 +54,7 @@ export class VMixController {
         });
       });
 
-      return { version, activeInputNumber, previewInputNumber, recording, streaming, inputs, overlays };
+      return { version, activeInputNumber, previewInputNumber, recording, streaming, external, multiCorder, inputs, overlays };
     } catch (error) {
       throw error;
     }

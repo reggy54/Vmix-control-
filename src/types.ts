@@ -23,6 +23,8 @@ export interface VMixState {
   previewInputNumber: number;
   recording: boolean;
   streaming: boolean;
+  external: boolean;
+  multiCorder: boolean;
   inputs: VMixInput[];
   overlays: VMixOverlay[];
 }

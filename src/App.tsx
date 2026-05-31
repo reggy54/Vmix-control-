@@ -16,7 +16,7 @@ interface Shortcut {
 
 const AVAILABLE_COMMANDS = [
   'Cut', 'Fade', 'Merge', 'Wipe', 
-  'StartStopRecording', 'StartStopStreaming', 
+  'StartStopRecording', 'StartStopStreaming', 'StartStopExternal', 'StartStopMultiCorder',
   'OverlayInput1', 'OverlayInput2', 'OverlayInput3', 'OverlayInput4',
   'SetPreview', 'ActiveInput'
 ];
@@ -259,6 +259,14 @@ export default function App() {
                  <div className={`w-2 h-2 rounded-full ${vMixState?.streaming ? 'bg-blue-500 shadow-[0_0_5px_#3b82f6] animate-pulse' : 'bg-gray-700'}`}></div>
                  <span className={vMixState?.streaming ? 'text-blue-400 font-bold' : 'text-gray-600'}>STREAM</span>
               </div>
+              <div className="flex items-center space-x-1">
+                 <div className={`w-2 h-2 rounded-full ${vMixState?.external ? 'bg-orange-500 shadow-[0_0_5px_#f97316] animate-pulse' : 'bg-gray-700'}`}></div>
+                 <span className={vMixState?.external ? 'text-orange-400 font-bold' : 'text-gray-600'}>EXT</span>
+              </div>
+              <div className="flex items-center space-x-1">
+                 <div className={`w-2 h-2 rounded-full ${vMixState?.multiCorder ? 'bg-purple-500 shadow-[0_0_5px_#a855f7] animate-pulse' : 'bg-gray-700'}`}></div>
+                 <span className={vMixState?.multiCorder ? 'text-purple-400 font-bold' : 'text-gray-600'}>MULTI</span>
+              </div>
               <div className="flex items-center space-x-1"><div className="w-2 h-2 rounded-full bg-green-500"></div><span>API OK</span></div>
             </div>
           )}
@@ -459,12 +467,20 @@ export default function App() {
                   </button>
                ))}
                <button onClick={() => sendCommand('StartStopRecording')} className="col-span-4 lg:col-span-2 mt-2 bg-[#252525] hover:bg-red-900/40 text-red-400 border border-transparent text-[10px] font-bold py-3 rounded uppercase transition-colors flex items-center justify-center space-x-2">
-                 <div className="w-2 h-2 rounded-full bg-red-600"></div>
+                 <div className={`w-2 h-2 rounded-full ${vMixState?.recording ? 'bg-red-600 shadow-[0_0_5px_#dc2626] animate-pulse' : 'bg-red-900'}`}></div>
                  <span>Toggle Rec</span>
                </button>
                <button onClick={() => sendCommand('StartStopStreaming')} className="col-span-4 lg:col-span-2 bg-[#252525] hover:bg-blue-900/40 text-blue-400 border border-transparent text-[10px] font-bold py-3 rounded uppercase transition-colors flex items-center justify-center space-x-2">
-                 <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                 <div className={`w-2 h-2 rounded-full ${vMixState?.streaming ? 'bg-blue-500 shadow-[0_0_5px_#3b82f6] animate-pulse' : 'bg-blue-900'}`}></div>
                  <span>Toggle Stream</span>
+               </button>
+               <button onClick={() => sendCommand('StartStopExternal')} className="col-span-4 lg:col-span-2 bg-[#252525] hover:bg-orange-900/40 text-orange-400 border border-transparent text-[10px] font-bold py-3 rounded uppercase transition-colors flex items-center justify-center space-x-2">
+                 <div className={`w-2 h-2 rounded-full ${vMixState?.external ? 'bg-orange-500 shadow-[0_0_5px_#f97316] animate-pulse' : 'bg-orange-900'}`}></div>
+                 <span>Toggle Ext</span>
+               </button>
+               <button onClick={() => sendCommand('StartStopMultiCorder')} className="col-span-4 lg:col-span-2 bg-[#252525] hover:bg-purple-900/40 text-purple-400 border border-transparent text-[10px] font-bold py-3 rounded uppercase transition-colors flex items-center justify-center space-x-2">
+                 <div className={`w-2 h-2 rounded-full ${vMixState?.multiCorder ? 'bg-purple-500 shadow-[0_0_5px_#a855f7] animate-pulse' : 'bg-purple-900'}`}></div>
+                 <span>MultiCorder</span>
                </button>
              </div>
           </div>
@@ -734,6 +750,9 @@ export default function App() {
                   </li>
                   <li>
                     <strong>Macro Builder:</strong> Build custom sequences of commands with delays. Set commands, inputs, and execute complex sequences with one click.
+                  </li>
+                  <li>
+                    <strong>Recording & Streaming:</strong> Toggle global recording, streaming, external output, and MultiCorder right from the side panel.
                   </li>
                   <li><strong>Transitions:</strong> Use Cut, Fade, Merge, and Wipe buttons to transition. Or manually drag the T-Bar slider.</li>
                 </ul>
