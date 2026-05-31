@@ -740,13 +740,15 @@ export default function App() {
               </div>
 
               <div>
-                <h3 className="text-orange-400 font-bold text-xs uppercase tracking-wider mb-2">Running Locally on Windows</h3>
+                <h3 className="text-orange-400 font-bold text-xs uppercase tracking-wider mb-2">Apps & Install (Windows / Android)</h3>
                 <ol className="list-decimal list-inside text-sm text-gray-300 space-y-1">
-                  <li>In Google AI Studio, click <strong>Share / Export</strong> and download this project as a ZIP file.</li>
-                  <li>Extract the ZIP file to a folder on your computer.</li>
-                  <li>Open the folder and double-click <code>start-windows.bat</code>.</li>
-                  <li>Node.js is required. The script will prompt you if it is missing and install required packages automatically.</li>
-                  <li>The app will automatically launch in your default browser perfectly configured.</li>
+                  <li><strong>Browser Install (PWA):</strong> This web application can be installed directly to your device!
+                    <ul className="list-disc list-inside ml-4 mt-1 text-xs text-gray-400">
+                       <li><strong>Windows (Chrome/Edge):</strong> Click the "Install App" or "App available" icon in the right side of your URL bar, or open the browser menu and select "Install vMix Web Controller".</li>
+                       <li><strong>Android:</strong> Open this page in Chrome, tap the 3-dot menu, and tap "Add to Home screen". It will act as a native fullscreen app.</li>
+                    </ul>
+                  </li>
+                  <li className="mt-2"><strong>Offline Windows Package:</strong> In Google AI Studio, click <strong>Share / Export</strong> and download this project as a ZIP file. Extract it and run <code>start-windows.bat</code> to run it entirely offline on Windows.</li>
                 </ol>
               </div>
 
