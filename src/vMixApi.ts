@@ -43,6 +43,11 @@ export class VMixController {
              name: t.getAttribute('name') || '',
              value: t.textContent || ''
           })),
+          listItems: Array.from(inputNode.querySelectorAll('list item')).map((item, index) => ({
+             selected: item.getAttribute('selected') === 'true',
+             value: item.textContent || '',
+             index: index + 1 // 1-based index for vMix API
+          }))
         });
       });
 

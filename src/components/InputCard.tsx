@@ -4,6 +4,7 @@ import { Play, Pause, VolumeX, Volume2, RotateCcw } from 'lucide-react';
 
 interface Props {
   input: VMixInput;
+  vmixUrl: string;
   isActive: boolean;
   isPreview: boolean;
   onClick: () => void;
@@ -11,7 +12,7 @@ interface Props {
   onCommand: (func: string, value?: string) => void;
 }
 
-export function InputCard({ input, isActive, isPreview, onClick, onDirectCut, onCommand }: Props) {
+export function InputCard({ input, vmixUrl, isActive, isPreview, onClick, onDirectCut, onCommand }: Props) {
   let borderColor = 'border-transparent';
   let numberColor = 'text-gray-300';
   let pgmBg = 'bg-[#333]';
@@ -46,11 +47,19 @@ export function InputCard({ input, isActive, isPreview, onClick, onDirectCut, on
     onCommand('Restart');
   };
 
+  // We add a timestamp so the image updates occasionally, perhaps every 5 seconds.
+  const timeQuery = Math.floor(Date.now() / 2000);
+  const thumbUrl = vmixUrl ? `${vmixUrl}/api/?thumbnail=${input.key}&t=${timeQuery}` : '';
+
   return (
     <div 
       className={`relative bg-[#252525] border-t-2 ${borderColor} rounded overflow-hidden p-1 flex flex-col h-24 hover:bg-[#2c2c2c] transition-colors`}
       onClick={onClick}
     >
+      <div 
+        className="absolute inset-0 opacity-40 bg-cover bg-center pointer-events-none" 
+        style={{ backgroundImage: thumbUrl ? `url("${thumbUrl}")` : 'none' }}
+      ></div>
       <div className="flex justify-between items-center px-1 mb-1 shrink-0">
         <div className="flex items-center space-x-1 relative z-20">
            <span className={`text-[9px] font-bold ${numberColor} mr-1`}>{input.number}</span>

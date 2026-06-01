@@ -6,6 +6,7 @@ import { InputCard } from './components/InputCard';
 import { AudioMixer } from './components/AudioMixer';
 import { TitleEditor } from './components/TitleEditor';
 import { MacroBuilder } from './components/MacroBuilder';
+import { ListEditor } from './components/ListEditor';
 
 interface Shortcut {
   id: string;
@@ -51,12 +52,24 @@ export default function App() {
   const [newShortcutValue, setNewShortcutValue] = useState('');
   const [filter, setFilter] = useState('All');
   
-  const [mainTab, setMainTab] = useState<'inputs' | 'mixer' | 'titles' | 'macros'>('inputs');
+  const [mainTab, setMainTab] = useState<'inputs' | 'mixer' | 'titles' | 'lists' | 'macros'>('inputs');
   const [macros, setMacros] = useState<{id: string, name: string, steps: {command: string, value: string, input: string, delay: number}[]}[]>(() => {
     const m = localStorage.getItem('vmix-macros-list');
     return m ? JSON.parse(m) : [];
   });
   useEffect(() => localStorage.setItem('vmix-macros-list', JSON.stringify(macros)), [macros]);
+
+  const [liveThumbnails, setLiveThumbnails] = useState(false);
+  const [thumbnailTick, setThumbnailTick] = useState(0);
+
+  useEffect(() => {
+    if (liveThumbnails && isConnected) {
+      const interval = setInterval(() => {
+        setThumbnailTick(Date.now());
+      }, 1000); // 1 FPS update
+      return () => clearInterval(interval);
+    }
+  }, [liveThumbnails, isConnected]);
 
   const pollTimeoutRef = useRef<number | null>(null);
 
@@ -240,17 +253,17 @@ export default function App() {
   });
 
   return (
-    <div className="flex flex-col h-screen min-h-screen bg-[#121212] text-[#d1d1d1] font-sans selection:bg-orange-500/30 overflow-hidden">
+    <div className="flex flex-col min-h-[100dvh] lg:h-screen lg:min-h-0 bg-[#121212] text-[#d1d1d1] font-sans selection:bg-orange-500/30 overflow-y-auto lg:overflow-hidden">
       
       {/* TOP HEADER */}
-      <header className="flex items-center justify-between px-4 py-2 bg-[#1e1e1e] border-b border-[#333] shrink-0 z-20">
-        <div className="flex items-center space-x-6">
+      <header className="flex flex-col sm:flex-row items-center justify-between px-4 py-2 bg-[#1e1e1e] border-b border-[#333] shrink-0 z-20 gap-2">
+        <div className="flex flex-wrap items-center justify-between w-full sm:w-auto gap-4">
           <div className="text-orange-500 font-bold text-lg tracking-tighter flex items-center space-x-2">
             <MonitorPlay size={20} />
-            <div>vMix <span className="text-white font-normal text-xs uppercase ml-1 opacity-60">Remote Control</span></div>
+            <div>vMix <span className="text-white font-normal text-xs uppercase ml-1 opacity-60">Remote</span></div>
           </div>
           {isConnected && (
-            <div className="hidden sm:flex space-x-3 text-[10px] font-mono">
+            <div className="flex flex-wrap gap-3 text-[10px] font-mono justify-end">
               <div className="flex items-center space-x-1">
                  <div className={`w-2 h-2 rounded-full ${vMixState?.recording ? 'bg-red-600 shadow-[0_0_5px_#dc2626] animate-pulse' : 'bg-gray-700'}`}></div>
                  <span className={vMixState?.recording ? 'text-red-500 font-bold' : 'text-gray-600'}>REC</span>
@@ -267,12 +280,19 @@ export default function App() {
                  <div className={`w-2 h-2 rounded-full ${vMixState?.multiCorder ? 'bg-purple-500 shadow-[0_0_5px_#a855f7] animate-pulse' : 'bg-gray-700'}`}></div>
                  <span className={vMixState?.multiCorder ? 'text-purple-400 font-bold' : 'text-gray-600'}>MULTI</span>
               </div>
-              <div className="flex items-center space-x-1"><div className="w-2 h-2 rounded-full bg-green-500"></div><span>API OK</span></div>
+              <button 
+                onClick={() => setLiveThumbnails(!liveThumbnails)} 
+                className={`flex items-center space-x-1 px-1.5 py-0.5 rounded border transition-colors ${liveThumbnails ? 'bg-green-900/30 border-green-600 text-green-400' : 'bg-transparent border-gray-600 text-gray-500 hover:text-gray-300'}`}
+              >
+                <div className={`w-2 h-2 rounded-full ${liveThumbnails ? 'bg-green-500 animate-pulse' : 'bg-gray-600'}`}></div>
+                <span>LIVE TX</span>
+              </button>
+              <div className="hidden sm:flex items-center space-x-1"><div className="w-2 h-2 rounded-full bg-green-500"></div><span>API OK</span></div>
             </div>
           )}
         </div>
         
-        <div className="flex items-center space-x-4">
+        <div className="flex flex-wrap items-center w-full sm:w-auto justify-end gap-2">
           <form onSubmit={handleConnect} className="flex items-center space-x-2 text-[11px] font-mono">
             <button 
               type="button" 
@@ -281,7 +301,7 @@ export default function App() {
             >
               <Search size={12} /> <span className="hidden sm:inline font-bold uppercase tracking-wider">Scan</span>
             </button>
-            <div className="relative hidden sm:flex items-center">
+            <div className="relative flex items-center">
                <Activity className={`absolute left-2 w-3 h-3 ${isConnected ? 'text-green-500' : 'text-gray-500'}`} />
                <input
                  type="text"
@@ -328,9 +348,17 @@ export default function App() {
         <div className="flex flex-col lg:flex-row min-h-[200px] lg:h-[40vh] space-y-2 lg:space-y-0 lg:space-x-2 shrink-0">
           
           {/* PREVIEW WINDOW */}
-          <div className="relative flex-1 bg-black border-4 border-green-600 rounded shadow-inner flex items-center justify-center min-h-[150px]">
-            <div className="absolute top-2 left-2 bg-green-600 text-white text-[10px] font-bold px-2 py-0.5 rounded">PREVIEW</div>
-            <div className="text-center px-4">
+          <div 
+            className="relative flex-1 bg-black border-4 border-green-600 rounded shadow-inner flex items-center justify-center min-h-[150px] overflow-hidden group"
+            style={liveThumbnails && previewInput && url ? {
+              backgroundImage: `url("${url}/api/?thumbnail=${previewInput.key}&t=${thumbnailTick}")`,
+              backgroundSize: 'contain',
+              backgroundPosition: 'center',
+              backgroundRepeat: 'no-repeat'
+            } : {}}
+          >
+            <div className="absolute top-2 left-2 bg-green-600 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow z-10">PREVIEW</div>
+            <div className={`text-center px-4 z-10 transition-opacity ${liveThumbnails && previewInput ? 'opacity-0 group-hover:opacity-100 bg-black/60 p-4 rounded backdrop-blur-sm' : ''}`}>
               <div className="text-2xl md:text-3xl lg:text-4xl font-bold opacity-20 italic truncate">
                  {previewInput ? previewInput.title : 'NO SOURCE'}
               </div>
@@ -366,11 +394,19 @@ export default function App() {
           </div>
 
           {/* PROGRAM WINDOW */}
-          <div className="relative flex-1 bg-black border-4 border-red-600 rounded shadow-inner flex items-center justify-center min-h-[150px]">
-            <div className="absolute top-2 left-2 bg-red-600 text-white text-[10px] font-bold px-2 py-0.5 rounded flex items-center space-x-1">
+          <div 
+            className="relative flex-1 bg-black border-4 border-red-600 rounded shadow-inner flex items-center justify-center min-h-[150px] overflow-hidden group"
+            style={liveThumbnails && activeInput && url ? {
+              backgroundImage: `url("${url}/api/?thumbnail=${activeInput.key}&t=${thumbnailTick}")`,
+              backgroundSize: 'contain',
+              backgroundPosition: 'center',
+              backgroundRepeat: 'no-repeat'
+            } : {}}
+          >
+            <div className="absolute top-2 left-2 bg-red-600 text-white text-[10px] font-bold px-2 py-0.5 rounded flex items-center space-x-1 shadow z-10">
                <Radio size={10} className="animate-pulse" /> <span>PROGRAM</span>
             </div>
-            <div className="text-center px-4">
+            <div className={`text-center px-4 z-10 transition-opacity ${liveThumbnails && activeInput ? 'opacity-0 group-hover:opacity-100 bg-black/60 p-4 rounded backdrop-blur-sm' : ''}`}>
               <div className="text-2xl md:text-3xl lg:text-4xl font-bold italic truncate drop-shadow-lg">
                  {activeInput ? activeInput.title : 'NO SOURCE'}
               </div>
@@ -387,14 +423,14 @@ export default function App() {
         </div>
 
         {/* BOTTOM HALF: Inputs Grid & Controls */}
-        <div className="flex flex-col lg:flex-row flex-1 space-y-2 lg:space-y-0 lg:space-x-2 min-h-[300px]">
+        <div className="flex flex-col lg:flex-row flex-1 space-y-2 lg:space-y-0 lg:space-x-2 min-h-[500px] lg:min-h-0">
           
           {/* MAIN AREA: Inputs / Mixer / Titles / Macros */}
           <div className="flex-1 bg-[#1e1e1e] border border-[#333] rounded flex flex-col h-full overflow-hidden">
             <div className="flex flex-col sm:flex-row justify-between sm:items-center px-3 py-2 shrink-0 border-b border-[#333] bg-[#161616] gap-2">
-               <div className="flex items-center space-x-4 overflow-x-auto">
-                 <div className="flex space-x-1 shrink-0">
-                   {(['inputs', 'mixer', 'titles', 'macros'] as const).map(tab => (
+               <div className="flex flex-wrap items-center gap-2">
+                 <div className="flex flex-wrap gap-1">
+                   {(['inputs', 'mixer', 'titles', 'lists', 'macros'] as const).map(tab => (
                      <button 
                        key={tab} 
                        onClick={() => setMainTab(tab)} 
@@ -405,7 +441,7 @@ export default function App() {
                    ))}
                  </div>
                  {mainTab === 'inputs' && (
-                   <div className="hidden sm:flex space-x-1 border-l border-[#333] pl-4 shrink-0">
+                   <div className="flex flex-wrap gap-1 sm:border-l border-[#333] sm:pl-4 shrink-0">
                      {['All', 'Camera', 'Video', 'Title', 'Audio', 'Image'].map(f => (
                        <button key={f} onClick={() => setFilter(f)} className={`text-[9px] px-2 py-0.5 rounded transition-colors ${filter === f ? 'bg-[#444] text-white font-bold' : 'text-gray-500 hover:bg-[#333]'}`}>{f}</button>
                      ))}
@@ -433,6 +469,7 @@ export default function App() {
                                  <InputCard
                                     key={input.key}
                                     input={input}
+                                    vmixUrl={url}
                                     isActive={input.number === vMixState.activeInputNumber}
                                     isPreview={input.number === vMixState.previewInputNumber}
                                     onClick={() => sendCommand('SetPreview', input.number)}
@@ -445,6 +482,7 @@ export default function App() {
                      )}
                      {mainTab === 'mixer' && <AudioMixer vMixState={vMixState!} sendCommand={sendCommand} />}
                      {mainTab === 'titles' && <TitleEditor vMixState={vMixState!} sendCommand={sendCommand} />}
+                     {mainTab === 'lists' && <ListEditor vMixState={vMixState!} sendCommand={sendCommand} />}
                      {mainTab === 'macros' && <MacroBuilder macros={macros} setMacros={setMacros} playMacro={playMacro} />}
                   </>
                )}
@@ -737,7 +775,7 @@ export default function App() {
                 <h3 className="text-orange-400 font-bold text-xs uppercase tracking-wider mb-2">Controls & Features</h3>
                 <ul className="list-disc list-inside text-sm text-gray-300 space-y-2">
                   <li>
-                    <strong>Views Tabs:</strong> Switch between main panels using the tabs (INPUTS, MIXER, TITLES, MACROS).
+                    <strong>Views Tabs:</strong> Switch between main panels using the tabs (INPUTS, MIXER, TITLES, LISTS, MACROS).
                   </li>
                   <li>
                     <strong>Inputs:</strong> Click to Preview, click PGM to cut live. Use the filter buttons to sort sources by type (Camera, Video, Title, Audio, Image).
@@ -747,6 +785,9 @@ export default function App() {
                   </li>
                   <li>
                     <strong>Title Editor:</strong> Select any Title/GT input to edit its text fields live. Changes are sent when you click away from the text box.
+                  </li>
+                  <li>
+                    <strong>Lists:</strong> View and manage items inside `List` or `VideoList` inputs. Select items or navigate to next/previous.
                   </li>
                   <li>
                     <strong>Macro Builder:</strong> Build custom sequences of commands with delays. Set commands, inputs, and execute complex sequences with one click.

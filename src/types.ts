@@ -10,6 +10,7 @@ export interface VMixInput {
   duration: number;
   position: number;
   textFields: { index: string; name: string; value: string }[];
+  listItems: { selected: boolean; value: string; index: number }[];
 }
 
 export interface VMixOverlay {
