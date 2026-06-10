@@ -36,6 +36,10 @@ export class VMixController {
           state: inputNode.getAttribute('state') || '',
           muted: inputNode.getAttribute('muted') === 'True',
           volume: parseFloat(inputNode.getAttribute('volume') || '100'),
+          meterF1: parseFloat(inputNode.getAttribute('meterF1') || '0'),
+          meterF2: parseFloat(inputNode.getAttribute('meterF2') || '0'),
+          audiobusses: inputNode.getAttribute('audiobusses') || '',
+          solo: inputNode.getAttribute('solo') === 'True',
           duration: parseInt(inputNode.getAttribute('duration') || '0', 10),
           position: parseInt(inputNode.getAttribute('position') || '0', 10),
           textFields: Array.from(inputNode.querySelectorAll('text')).map(t => ({
@@ -59,7 +63,21 @@ export class VMixController {
         });
       });
 
-      return { version, activeInputNumber, previewInputNumber, recording, streaming, external, multiCorder, inputs, overlays };
+      const audio: any[] = [];
+      const audioNode = xml.querySelector('audio');
+      if (audioNode) {
+        Array.from(audioNode.children).forEach((child) => {
+           audio.push({
+             name: child.tagName, // master, busA, busB...
+             volume: parseFloat(child.getAttribute('volume') || '100'),
+             muted: child.getAttribute('muted') === 'True',
+             meterF1: parseFloat(child.getAttribute('meterF1') || '0'),
+             meterF2: parseFloat(child.getAttribute('meterF2') || '0'),
+           });
+        });
+      }
+
+      return { version, activeInputNumber, previewInputNumber, recording, streaming, external, multiCorder, inputs, overlays, audio };
     } catch (error) {
       throw error;
     }

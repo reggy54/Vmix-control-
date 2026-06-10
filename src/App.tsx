@@ -7,6 +7,11 @@ import { AudioMixer } from './components/AudioMixer';
 import { TitleEditor } from './components/TitleEditor';
 import { MacroBuilder } from './components/MacroBuilder';
 import { ListEditor } from './components/ListEditor';
+import { TallyMode } from './components/TallyMode';
+import { PTZControls } from './components/PTZControls';
+import { formatTime } from './utils';
+
+
 
 interface Shortcut {
   id: string;
@@ -31,6 +36,7 @@ export default function App() {
   const [isHttpsInsecure, setIsHttpsInsecure] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
+  const [isTallyOpen, setIsTallyOpen] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [subnetPrefix, setSubnetPrefix] = useState('192.168.1');
   const [scanProgress, setScanProgress] = useState(0);
@@ -60,16 +66,33 @@ export default function App() {
   useEffect(() => localStorage.setItem('vmix-macros-list', JSON.stringify(macros)), [macros]);
 
   const [liveThumbnails, setLiveThumbnails] = useState(false);
+  const [liveFps, setLiveFps] = useState(() => {
+    const s = localStorage.getItem('vmix-live-fps');
+    return s ? parseFloat(s) : 1;
+  });
+  const [useWebRTC, setUseWebRTC] = useState(() => {
+    const s = localStorage.getItem('vmix-use-webrtc');
+    return s ? s === 'true' : false;
+  });
+  const [pollRate, setPollRate] = useState(() => {
+    const s = localStorage.getItem('vmix-poll-rate');
+    return s ? parseInt(s, 10) : 1000;
+  });
+  
   const [thumbnailTick, setThumbnailTick] = useState(0);
 
+  useEffect(() => localStorage.setItem('vmix-live-fps', liveFps.toString()), [liveFps]);
+  useEffect(() => localStorage.setItem('vmix-use-webrtc', useWebRTC.toString()), [useWebRTC]);
+  useEffect(() => localStorage.setItem('vmix-poll-rate', pollRate.toString()), [pollRate]);
+
   useEffect(() => {
-    if (liveThumbnails && isConnected) {
+    if (liveThumbnails && isConnected && !useWebRTC) {
       const interval = setInterval(() => {
         setThumbnailTick(Date.now());
-      }, 1000); // 1 FPS update
+      }, 1000 / liveFps);
       return () => clearInterval(interval);
     }
-  }, [liveThumbnails, isConnected]);
+  }, [liveThumbnails, isConnected, liveFps, useWebRTC]);
 
   const pollTimeoutRef = useRef<number | null>(null);
 
@@ -102,9 +125,9 @@ export default function App() {
       setIsConnected(false);
       setError('Connection failed. Make sure vMix is running, Web Controller is enabled in vMix settings, and network access is allowed.');
     } finally {
-      pollTimeoutRef.current = window.setTimeout(() => pollState(ctrl), 1000);
+      pollTimeoutRef.current = window.setTimeout(() => pollState(ctrl), pollRate);
     }
-  }, []);
+  }, [pollRate]);
 
   const handleConnect = (e: React.FormEvent) => {
     e.preventDefault();
@@ -350,23 +373,45 @@ export default function App() {
           {/* PREVIEW WINDOW */}
           <div 
             className="relative flex-1 bg-black border-4 border-green-600 rounded shadow-inner flex items-center justify-center min-h-[150px] overflow-hidden group"
-            style={liveThumbnails && previewInput && url ? {
+            style={(!useWebRTC && liveThumbnails && previewInput && url) ? {
               backgroundImage: `url("${url}/api/?thumbnail=${previewInput.key}&t=${thumbnailTick}")`,
               backgroundSize: 'contain',
               backgroundPosition: 'center',
               backgroundRepeat: 'no-repeat'
             } : {}}
           >
+            {useWebRTC && liveThumbnails && url && (
+               <iframe 
+                 src={`${url.replace(/:\d+$/, '')}:8089/`} 
+                 className="absolute inset-0 w-full h-full border-0 pointer-events-none opacity-50 grayscale"
+                 title="Preview WebRTC"
+                 sandbox="allow-same-origin allow-scripts"
+               ></iframe>
+            )}
             <div className="absolute top-2 left-2 bg-green-600 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow z-10">PREVIEW</div>
-            <div className={`text-center px-4 z-10 transition-opacity ${liveThumbnails && previewInput ? 'opacity-0 group-hover:opacity-100 bg-black/60 p-4 rounded backdrop-blur-sm' : ''}`}>
-              <div className="text-2xl md:text-3xl lg:text-4xl font-bold opacity-20 italic truncate">
+            <div className={`text-center px-4 z-10 w-full flex flex-col items-center transition-opacity ${liveThumbnails && previewInput ? 'opacity-0 group-hover:opacity-100 bg-black/60 p-4 rounded backdrop-blur-sm' : ''}`}>
+              <div className="text-2xl md:text-3xl lg:text-4xl font-bold opacity-20 italic truncate max-w-full">
                  {previewInput ? previewInput.title : 'NO SOURCE'}
               </div>
-              <div className="text-[10px] uppercase tracking-widest opacity-30 mt-2 truncate">
+              <div className="text-[10px] uppercase tracking-widest opacity-30 mt-2 truncate max-w-full">
                  {previewInput ? previewInput.shortTitle : '---'}
               </div>
+              {previewInput && previewInput.duration > 0 && (
+                <div className="mt-4 font-mono text-xl sm:text-2xl lg:text-3xl font-bold text-gray-300 bg-black/50 px-3 py-1 rounded shadow-inner tracking-wider">
+                  -{formatTime(previewInput.duration - previewInput.position)}
+                </div>
+              )}
             </div>
-            <div className="absolute bottom-2 right-2 flex space-x-1">
+            
+            {previewInput && previewInput.duration > 0 && (
+              <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-black/80 z-10">
+                <div 
+                  className="h-full bg-green-600 transition-all duration-300 ease-linear"
+                  style={{ width: `${(previewInput.position / previewInput.duration) * 100}%` }}
+                ></div>
+              </div>
+            )}
+            <div className="absolute bottom-2 right-2 flex space-x-1 z-10">
               <div className="w-8 h-1 bg-green-600"></div>
               <div className="w-8 h-1 bg-gray-700"></div>
             </div>
@@ -396,25 +441,51 @@ export default function App() {
           {/* PROGRAM WINDOW */}
           <div 
             className="relative flex-1 bg-black border-4 border-red-600 rounded shadow-inner flex items-center justify-center min-h-[150px] overflow-hidden group"
-            style={liveThumbnails && activeInput && url ? {
+            style={(!useWebRTC && liveThumbnails && activeInput && url) ? {
               backgroundImage: `url("${url}/api/?thumbnail=${activeInput.key}&t=${thumbnailTick}")`,
               backgroundSize: 'contain',
               backgroundPosition: 'center',
               backgroundRepeat: 'no-repeat'
             } : {}}
           >
+            {useWebRTC && liveThumbnails && url && (
+               <iframe 
+                 src={`${url.replace(/:\d+$/, '')}:8089/`} 
+                 className="absolute inset-0 w-full h-full border-0 pointer-events-none"
+                 title="Program WebRTC"
+                 sandbox="allow-same-origin allow-scripts"
+               ></iframe>
+            )}
             <div className="absolute top-2 left-2 bg-red-600 text-white text-[10px] font-bold px-2 py-0.5 rounded flex items-center space-x-1 shadow z-10">
                <Radio size={10} className="animate-pulse" /> <span>PROGRAM</span>
             </div>
-            <div className={`text-center px-4 z-10 transition-opacity ${liveThumbnails && activeInput ? 'opacity-0 group-hover:opacity-100 bg-black/60 p-4 rounded backdrop-blur-sm' : ''}`}>
-              <div className="text-2xl md:text-3xl lg:text-4xl font-bold italic truncate drop-shadow-lg">
+            <div className={`text-center px-4 w-full flex flex-col items-center z-10 transition-opacity ${liveThumbnails && activeInput ? 'opacity-0 group-hover:opacity-100 bg-black/60 p-4 rounded backdrop-blur-sm' : ''}`}>
+              <div className="text-2xl md:text-3xl lg:text-4xl font-bold italic truncate drop-shadow-lg max-w-full">
                  {activeInput ? activeInput.title : 'NO SOURCE'}
               </div>
-              <div className="text-[10px] uppercase tracking-widest opacity-60 mt-2 truncate">
+              <div className="text-[10px] uppercase tracking-widest opacity-60 mt-2 truncate max-w-full">
                  {activeInput ? activeInput.shortTitle : '---'}
               </div>
+              
+              {activeInput && activeInput.duration > 0 && (
+                <div className={`mt-4 font-mono text-3xl sm:text-4xl lg:text-5xl font-bold bg-black/60 px-4 py-1.5 rounded shadow-xl tracking-wider ${
+                  (activeInput.duration - activeInput.position) < 10000 ? 'text-red-500 animate-pulse' : 'text-white'
+                }`}>
+                  -{formatTime(activeInput.duration - activeInput.position)}
+                </div>
+              )}
             </div>
-            <div className="absolute bottom-2 right-2 flex space-x-1">
+            
+            {activeInput && activeInput.duration > 0 && (
+              <div className="absolute bottom-0 left-0 right-0 h-2 bg-black/80 z-10 shadow-[0_-2px_10px_rgba(0,0,0,0.5)]">
+                <div 
+                  className={`h-full transition-all duration-300 ease-linear ${(activeInput.duration - activeInput.position) < 10000 ? 'bg-red-500' : 'bg-blue-500'}`}
+                  style={{ width: `${(activeInput.position / activeInput.duration) * 100}%` }}
+                ></div>
+              </div>
+            )}
+
+            <div className="absolute bottom-2 right-2 flex space-x-1 z-10">
               <div className="w-24 h-1.5 bg-[#111] rounded-full overflow-hidden">
                 <div className="w-[75%] h-full bg-green-500 border-r border-[#111]"></div>
               </div>
@@ -430,7 +501,7 @@ export default function App() {
             <div className="flex flex-col sm:flex-row justify-between sm:items-center px-3 py-2 shrink-0 border-b border-[#333] bg-[#161616] gap-2">
                <div className="flex flex-wrap items-center gap-2">
                  <div className="flex flex-wrap gap-1">
-                   {(['inputs', 'mixer', 'titles', 'lists', 'macros'] as const).map(tab => (
+                   {(['inputs', 'mixer', 'ptz', 'titles', 'lists', 'macros'] as const).map(tab => (
                      <button 
                        key={tab} 
                        onClick={() => setMainTab(tab)} 
@@ -481,6 +552,7 @@ export default function App() {
                         </div>
                      )}
                      {mainTab === 'mixer' && <AudioMixer vMixState={vMixState!} sendCommand={sendCommand} />}
+                     {mainTab === 'ptz' && <PTZControls vMixState={vMixState!} sendCommand={sendCommand} />}
                      {mainTab === 'titles' && <TitleEditor vMixState={vMixState!} sendCommand={sendCommand} />}
                      {mainTab === 'lists' && <ListEditor vMixState={vMixState!} sendCommand={sendCommand} />}
                      {mainTab === 'macros' && <MacroBuilder macros={macros} setMacros={setMacros} playMacro={playMacro} />}
@@ -495,15 +567,21 @@ export default function App() {
                 <span className="text-[10px] font-bold uppercase tracking-wider">Overlays & Extras</span>
              </div>
              <div className="grid grid-cols-4 lg:grid-cols-2 gap-2 flex-1 content-start">
-               {[1, 2, 3, 4].map(num => (
-                  <button 
-                     key={num}
-                     onClick={() => sendCommand(`OverlayInput${num}`)}
-                     className="bg-[#252525] hover:bg-[#333] border border-transparent hover:border-[#555] text-[10px] font-bold py-4 rounded uppercase transition-colors text-blue-400"
-                  >
-                     OVL {num}
-                  </button>
-               ))}
+               {[1, 2, 3, 4].map(num => {
+                  const ovl = vMixState?.overlays.find(o => o.number === num);
+                  const isActive = ovl && ovl.input !== undefined;
+                  const ovlInput = isActive && vMixState?.inputs.find(i => i.number === ovl.input);
+                  return (
+                    <button 
+                       key={num}
+                       onClick={() => sendCommand(`OverlayInput${num}`)}
+                       className={`border py-3 rounded uppercase transition-colors flex flex-col items-center justify-center space-y-1 ${isActive ? 'bg-blue-900/60 border-blue-500 hover:bg-blue-900/80 text-white' : 'bg-[#252525] hover:bg-[#333] border-transparent hover:border-[#555] text-gray-500'}`}
+                    >
+                       <span className="text-[10px] font-bold">OVL {num}</span>
+                       <span className={`text-[8px] truncate px-1 w-full text-center ${isActive ? 'text-blue-200' : 'text-gray-600'}`}>{isActive && ovlInput ? ovlInput.shortTitle : 'Off'}</span>
+                    </button>
+                  );
+               })}
                <button onClick={() => sendCommand('StartStopRecording')} className="col-span-4 lg:col-span-2 mt-2 bg-[#252525] hover:bg-red-900/40 text-red-400 border border-transparent text-[10px] font-bold py-3 rounded uppercase transition-colors flex items-center justify-center space-x-2">
                  <div className={`w-2 h-2 rounded-full ${vMixState?.recording ? 'bg-red-600 shadow-[0_0_5px_#dc2626] animate-pulse' : 'bg-red-900'}`}></div>
                  <span>Toggle Rec</span>
@@ -571,12 +649,93 @@ export default function App() {
 
                 <div>
                   <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Polling Rate</label>
-                  <select className="w-full bg-[#111] border border-[#333] rounded px-3 py-2 text-gray-300 text-sm focus:outline-none">
-                    <option>1000ms (Standard)</option>
-                    <option>500ms (Fast)</option>
-                    <option>200ms (Ultra)</option>
+                  <select 
+                    value={pollRate.toString()} 
+                    onChange={(e) => setPollRate(parseInt(e.target.value))}
+                    className="w-full bg-[#111] border border-[#333] rounded px-3 py-2 text-gray-300 text-sm focus:outline-none"
+                  >
+                    <option value="1000">1000ms (Standard)</option>
+                    <option value="500">500ms (Fast)</option>
+                    <option value="200">200ms (Ultra)</option>
                   </select>
                   <p className="text-[10px] text-gray-500 mt-1">Faster polling uses more network resources.</p>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Live TX (Preview/Program) FPS</label>
+                  <div className="flex items-center space-x-2">
+                     <input 
+                       type="range" 
+                       min="0.5" 
+                       max="10" 
+                       step="0.5"
+                       value={liveFps} 
+                       onChange={(e) => setLiveFps(parseFloat(e.target.value))} 
+                       className="flex-1"
+                       disabled={useWebRTC}
+                     />
+                     <span className="text-xs font-mono text-orange-500 font-bold w-12 text-right">{useWebRTC ? '---' : `${liveFps} FPS`}</span>
+                  </div>
+                </div>
+
+                <div>
+                   <label className="flex items-center space-x-2 cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        checked={useWebRTC}
+                        onChange={(e) => setUseWebRTC(e.target.checked)}
+                        className="rounded border-[#333] bg-[#111] text-orange-500 focus:ring-orange-500 focus:ring-offset-[#161616]"
+                      />
+                      <span className="text-[10px] font-bold text-gray-300 uppercase tracking-wider">Use vMix WebRTC (Port 8089) for main displays</span>
+                   </label>
+                   <p className="text-[10px] text-gray-500 mt-1 ml-6">Significantly faster 30/60 FPS, connects directly to vMix WebRTC output (requires vMix Pro/4K or Web Controller enabled).</p>
+                </div>
+
+                <div className="pt-4 border-t border-[#333]">
+                   <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Data Management</label>
+                   <div className="flex space-x-2">
+                     <button 
+                       onClick={() => {
+                         const data = { macros, shortcuts };
+                         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                         const blobUrl = URL.createObjectURL(blob);
+                         const a = document.createElement('a');
+                         a.href = blobUrl;
+                         a.download = `vmix-remote-backup-${new Date().toISOString().split('T')[0]}.json`;
+                         a.click();
+                         URL.revokeObjectURL(blobUrl);
+                       }}
+                       className="bg-[#222] hover:bg-[#333] border border-[#444] text-gray-300 px-3 py-1.5 rounded text-xs transition-colors font-bold"
+                     >
+                       Export Macros & Shortcuts
+                     </button>
+                     
+                     <label className="bg-[#222] hover:bg-[#333] border border-[#444] text-gray-300 px-3 py-1.5 rounded text-xs transition-colors font-bold cursor-pointer">
+                       Import Backup
+                       <input 
+                         type="file" 
+                         accept=".json" 
+                         className="hidden" 
+                         onChange={(e) => {
+                           const file = e.target.files?.[0];
+                           if (!file) return;
+                           const reader = new FileReader();
+                           reader.onload = (ev) => {
+                             try {
+                               const data = JSON.parse(ev.target?.result as string);
+                               if (data.macros) setMacros(data.macros);
+                               if (data.shortcuts) setShortcuts(data.shortcuts);
+                               alert('Backup imported successfully!');
+                             } catch (err) {
+                               alert('Failed to parse backup file');
+                             }
+                           };
+                           reader.readAsText(file);
+                           e.target.value = '';
+                         }} 
+                       />
+                     </label>
+                   </div>
                 </div>
               </div>
             ) : (
@@ -744,6 +903,9 @@ export default function App() {
         </div>
       )}
 
+      {/* TALLY MODE */}
+      {isTallyOpen && <TallyMode vMixState={vMixState} onExit={() => setIsTallyOpen(false)} />}
+
       {/* HELP MODAL */}
       {isHelpOpen && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
@@ -775,27 +937,26 @@ export default function App() {
                 <h3 className="text-orange-400 font-bold text-xs uppercase tracking-wider mb-2">Controls & Features</h3>
                 <ul className="list-disc list-inside text-sm text-gray-300 space-y-2">
                   <li>
-                    <strong>Views Tabs:</strong> Switch between main panels using the tabs (INPUTS, MIXER, TITLES, LISTS, MACROS).
+                    <strong>Views Tabs:</strong> Switch between main panels: INPUTS, MIXER, PTZ, TITLES, LISTS, and MACROS.
                   </li>
                   <li>
-                    <strong>Inputs:</strong> Click to Preview, click PGM to cut live. Use the filter buttons to sort sources by type (Camera, Video, Title, Audio, Image).
+                    <strong>Inputs & Live TX:</strong> Click to Preview, click PGM to cut live. Toggle "LIVE TX" for thumbnail previews. In Settings, enable "Use WebRTC" for low-latency 30/60 FPS Program/Preview video.
                   </li>
                   <li>
-                    <strong>Audio Mixer:</strong> Manage volume levels and toggle mute states for all audio sources visually.
+                    <strong>Audio Mixer:</strong> Master and Audio Bus (A-G) routing, live VU meters, Solo/Headphone, and Fader control for all audio sources.
                   </li>
                   <li>
-                    <strong>Title Editor:</strong> Select any Title/GT input to edit its text fields live. Changes are sent when you click away from the text box.
+                    <strong>PTZ Controller:</strong> Control Pan, Tilt, Zoom, and Presets for your PTZ/NDI cameras visually via virtual joystick and presets.
                   </li>
                   <li>
-                    <strong>Lists:</strong> View and manage items inside `List` or `VideoList` inputs. Select items or navigate to next/previous.
+                    <strong>Tally Mode:</strong> Full-screen Tally indicator (Live/Preview) for camera operators.
                   </li>
                   <li>
-                    <strong>Macro Builder:</strong> Build custom sequences of commands with delays. Set commands, inputs, and execute complex sequences with one click.
+                    <strong>Titles & Lists:</strong> Edit Title/GT text fields live. View and manage media via List inputs.
                   </li>
                   <li>
-                    <strong>Recording & Streaming:</strong> Toggle global recording, streaming, external output, and MultiCorder right from the side panel.
+                    <strong>Settings (Backup):</strong> Change polling rates, toggle WebRTC. Export your custom Macros and Shortcuts to a JSON backup and Restore them as needed.
                   </li>
-                  <li><strong>Transitions:</strong> Use Cut, Fade, Merge, and Wipe buttons to transition. Or manually drag the T-Bar slider.</li>
                 </ul>
               </div>
 
@@ -856,6 +1017,9 @@ export default function App() {
           <span>{isConnected ? 'LATENCY: <10ms' : 'OFFLINE'}</span>
         </div>
         <div className="flex items-center space-x-2">
+          <button onClick={() => setIsTallyOpen(true)} className="px-2 py-0.5 bg-red-900/40 hover:bg-red-900/60 text-red-400 font-bold transition-colors rounded cursor-pointer border border-red-900 flex items-center gap-1 uppercase tracking-wider">
+            TALLY
+          </button>
           <button onClick={() => setIsHelpOpen(true)} className="px-2 py-0.5 bg-[#222] hover:bg-[#333] transition-colors rounded text-gray-400 cursor-pointer border border-[#333] flex items-center gap-1">
             <HelpCircle size={10} /> Help
           </button>

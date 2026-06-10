@@ -7,6 +7,10 @@ export interface VMixInput {
   state: string;
   muted: boolean;
   volume: number;
+  meterF1: number;
+  meterF2: number;
+  audiobusses: string;
+  solo: boolean;
   duration: number;
   position: number;
   textFields: { index: string; name: string; value: string }[];
@@ -16,6 +20,14 @@ export interface VMixInput {
 export interface VMixOverlay {
   number: number;
   input?: number;
+}
+
+export interface VMixAudioBus {
+  name: string;
+  volume: number;
+  muted: boolean;
+  meterF1: number;
+  meterF2: number;
 }
 
 export interface VMixState {
@@ -28,4 +40,5 @@ export interface VMixState {
   multiCorder: boolean;
   inputs: VMixInput[];
   overlays: VMixOverlay[];
+  audio: VMixAudioBus[];
 }

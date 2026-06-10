@@ -1,6 +1,7 @@
 import React from 'react';
 import { VMixInput } from '../types';
 import { Play, Pause, VolumeX, Volume2, RotateCcw } from 'lucide-react';
+import { formatTime } from '../utils';
 
 interface Props {
   input: VMixInput;
@@ -81,7 +82,7 @@ export function InputCard({ input, vmixUrl, isActive, isPreview, onClick, onDire
       </div>
       
       <div 
-        className="flex-1 bg-black/40 rounded flex items-center justify-center p-1 cursor-pointer overflow-hidden group relative"
+        className="flex-1 bg-black/40 rounded flex flex-col items-center justify-center p-1 cursor-pointer overflow-hidden group relative"
         onDoubleClick={(e) => {
            e.stopPropagation();
            onDirectCut();
@@ -91,11 +92,17 @@ export function InputCard({ input, vmixUrl, isActive, isPreview, onClick, onDire
           {input.shortTitle}
         </div>
         
+        {input.duration > 0 && (
+           <div className={`text-[9px] font-mono font-bold mt-0.5 z-10 bg-black/60 px-1 rounded ${(input.duration - input.position) < 10000 ? 'text-red-400' : 'text-gray-300'}`}>
+              -{formatTime(input.duration - input.position)}
+           </div>
+        )}
+
         {/* Progress Bar for Media */}
         {input.duration > 0 && (
-           <div className="absolute bottom-0 left-0 right-0 h-1 bg-black/60 z-10 w-full mb-0.5 pointer-events-none">
+           <div className="absolute bottom-0 left-0 right-0 h-1 bg-black/60 z-10 w-full pointer-events-none">
               <div 
-                className="h-full bg-blue-500" 
+                className={`h-full ${(input.duration - input.position) < 10000 ? 'bg-red-500' : 'bg-blue-500'} transition-all duration-300 ease-linear`}
                 style={{ width: `${(input.position / input.duration) * 100}%` }}
               ></div>
            </div>
