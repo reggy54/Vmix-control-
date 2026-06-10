@@ -934,6 +934,20 @@ export default function App() {
               </div>
 
               <div>
+                <h3 className="text-orange-400 font-bold text-xs uppercase tracking-wider mb-2">Remote / Cloud Connection (VPN)</h3>
+                <p className="text-sm text-gray-300 mb-2">
+                  To control vMix over the internet from anywhere in the world, use a Virtual LAN like <strong>Tailscale</strong>, <strong>ZeroTier</strong>, or <strong>Radmin VPN</strong>.
+                </p>
+                <ol className="list-decimal list-inside text-sm text-gray-300 space-y-1">
+                  <li>Install your chosen VPN (e.g., Tailscale) on the PC running vMix.</li>
+                  <li>Install the same VPN app on the device you want to control from (phone, tablet, laptop).</li>
+                  <li>Connect both devices to the same virtual network.</li>
+                  <li>Find the virtual IP address of the vMix PC in the VPN app (e.g., <code>100.x.y.z</code> in Tailscale).</li>
+                  <li>Enter that virtual IP address with port 8088 (e.g., <code>http://100.x.y.z:8088</code>) into this web controller and click Connect.</li>
+                </ol>
+              </div>
+
+              <div>
                 <h3 className="text-orange-400 font-bold text-xs uppercase tracking-wider mb-2">Controls & Features</h3>
                 <ul className="list-disc list-inside text-sm text-gray-300 space-y-2">
                   <li>
