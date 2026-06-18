@@ -20,8 +20,14 @@ export class VMixController {
       const activeInputNumber = parseInt(xml.querySelector('active')?.textContent || '-1', 10);
       const previewInputNumber = parseInt(xml.querySelector('preview')?.textContent || '-1', 10);
       const version = xml.querySelector('version')?.textContent || 'Unknown';
-      const recording = xml.querySelector('recording')?.textContent === 'True';
-      const streaming = xml.querySelector('streaming')?.textContent === 'True';
+      const recordingNode = xml.querySelector('recording');
+      const recording = recordingNode?.textContent === 'True';
+      const recordingTime = parseInt(recordingNode?.getAttribute('duration1') || recordingNode?.getAttribute('duration') || '0', 10);
+      
+      const streamingNode = xml.querySelector('streaming');
+      const streaming = streamingNode?.textContent === 'True';
+      const streamingTime = parseInt(streamingNode?.getAttribute('duration1') || streamingNode?.getAttribute('duration') || '0', 10);
+      
       const external = xml.querySelector('external')?.textContent === 'True';
       const multiCorder = xml.querySelector('multiCorder')?.textContent === 'True';
 
@@ -77,17 +83,18 @@ export class VMixController {
         });
       }
 
-      return { version, activeInputNumber, previewInputNumber, recording, streaming, external, multiCorder, inputs, overlays, audio };
+      return { version, activeInputNumber, previewInputNumber, recording, recordingTime, streaming, streamingTime, external, multiCorder, inputs, overlays, audio };
     } catch (error) {
       throw error;
     }
   }
 
-  async sendCommand(func: string, input?: string | number, value?: string) {
+  async sendCommand(func: string, input?: string | number, value?: string | number, duration?: number) {
     try {
       let url = `${this.baseUrl}/api/?Function=${func}`;
       if (input !== undefined) url += `&Input=${encodeURIComponent(input)}`;
       if (value !== undefined) url += `&Value=${encodeURIComponent(value)}`;
+      if (duration !== undefined) url += `&Duration=${encodeURIComponent(duration)}`;
 
       await fetch(url, { method: 'GET' });
     } catch (error) {

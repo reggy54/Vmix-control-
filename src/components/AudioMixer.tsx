@@ -81,6 +81,49 @@ export function AudioMixer({ vMixState, sendCommand }: Props) {
               >
                  {input.muted ? 'Muted' : 'Audio On'}
               </button>
+
+              <div className="flex w-full space-x-1 mt-1">
+                 <button 
+                   onClick={() => sendCommand('AudioEQ', input.number)}
+                   className="flex-1 py-1 text-[8px] font-bold rounded bg-[#222] text-cyan-500 hover:bg-[#333] border border-[#333] transition-colors uppercase"
+                   title="Toggle EQ"
+                 >
+                   EQ
+                 </button>
+                 <button 
+                   onClick={() => sendCommand('AudioCompressor', input.number)}
+                   className="flex-1 py-1 text-[8px] font-bold rounded bg-[#222] text-purple-500 hover:bg-[#333] border border-[#333] transition-colors uppercase"
+                   title="Toggle Compressor"
+                 >
+                   COMP
+                 </button>
+                 <button 
+                   onClick={() => sendCommand('AudioAutoGain', input.number)}
+                   className="flex-1 py-1 text-[8px] font-bold rounded bg-[#222] text-yellow-500 hover:bg-[#333] border border-[#333] transition-colors uppercase"
+                   title="Toggle Auto Gain"
+                 >
+                   AGC
+                 </button>
+              </div>
+
+              {input.audiobusses && (
+                 <div className="flex flex-wrap gap-0.5 justify-center mt-1 w-full">
+                    {['M', 'A', 'B', 'C', 'D', 'E', 'F', 'G'].map(bus => {
+                       const routed = input.audiobusses.includes(bus);
+                       // We can toggle routing by sending AudioBus (Bus, Input)
+                       return (
+                          <button
+                             key={bus}
+                             onClick={() => sendCommand('AudioBus', input.number, bus)}
+                             className={`w-4 h-4 text-[7px] font-bold rounded ${routed ? 'bg-orange-600 border-orange-500 text-white' : 'bg-[#111] border-[#333] text-gray-500 hover:bg-[#222]'} border transition-colors flex items-center justify-center`}
+                             title={`Route to Bus ${bus}`}
+                          >
+                             {bus}
+                          </button>
+                       );
+                    })}
+                 </div>
+              )}
            </div>
         ))}
         {audioInputs.length === 0 && <div className="text-gray-500 text-xs italic">No audio sources found.</div>}

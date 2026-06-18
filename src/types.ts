@@ -35,7 +35,9 @@ export interface VMixState {
   activeInputNumber: number;
   previewInputNumber: number;
   recording: boolean;
+  recordingTime: number;
   streaming: boolean;
+  streamingTime: number;
   external: boolean;
   multiCorder: boolean;
   inputs: VMixInput[];

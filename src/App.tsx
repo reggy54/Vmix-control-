@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Settings2, Radio, Activity, Link, Unlink, AlertTriangle, MonitorPlay, Focus, Layers, Maximize, HelpCircle, Search, Wifi } from 'lucide-react';
+import { Settings2, Radio, Activity, Link, Unlink, AlertTriangle, MonitorPlay, Focus, Layers, Maximize, HelpCircle, Search, Wifi, Video, Image as ImageIcon, LayoutDashboard, Sliders, Move, Type, List, MonitorUp, Terminal, Code, Database } from 'lucide-react';
 import { VMixController } from './vMixApi';
 import { VMixState } from './types';
 import { InputCard } from './components/InputCard';
@@ -7,9 +7,18 @@ import { AudioMixer } from './components/AudioMixer';
 import { TitleEditor } from './components/TitleEditor';
 import { MacroBuilder } from './components/MacroBuilder';
 import { ListEditor } from './components/ListEditor';
+import { MultiViewEditor } from './components/MultiViewEditor';
+import { OutputsEditor } from './components/OutputsEditor';
+import { ImageAdjustEditor } from './components/ImageAdjustEditor';
+import { PlaylistsScriptsEditor } from './components/PlaylistsScriptsEditor';
+import { SocialDataEditor } from './components/SocialDataEditor';
 import { TallyMode } from './components/TallyMode';
 import { PTZControls } from './components/PTZControls';
-import { formatTime } from './utils';
+import { Dashboard } from './components/Dashboard';
+import { ColourKeyConfig } from './components/ColourKeyConfig';
+import { StatusPanel } from './components/StatusPanel';
+import { TransitionPanel } from './components/TransitionPanel';
+import { formatTime, formatSeconds } from './utils';
 
 
 
@@ -24,8 +33,24 @@ const AVAILABLE_COMMANDS = [
   'Cut', 'Fade', 'Merge', 'Wipe', 
   'StartStopRecording', 'StartStopStreaming', 'StartStopExternal', 'StartStopMultiCorder',
   'OverlayInput1', 'OverlayInput2', 'OverlayInput3', 'OverlayInput4',
-  'SetPreview', 'ActiveInput'
+  'SetPreview', 'ActiveInput', 'PlayLocalMacro',
+  'ColourKey', 'ColourKeyOn', 'ColourKeyOff'
 ];
+
+const MAIN_TABS = [
+  { id: 'dashboard', label: 'Dash', icon: LayoutDashboard },
+  { id: 'inputs', label: 'Inputs', icon: Video },
+  { id: 'mixer', label: 'Audio', icon: Sliders },
+  { id: 'layers', label: 'Layers', icon: Layers },
+  { id: 'titles', label: 'Titles', icon: Type },
+  { id: 'outputs', label: 'Outputs', icon: MonitorUp },
+  { id: 'ptz', label: 'PTZ', icon: Move },
+  { id: 'lists', label: 'Lists', icon: List },
+  { id: 'image', label: 'Color', icon: Settings2 },
+  { id: 'scripts', label: 'Scripts', icon: Code },
+  { id: 'data', label: 'Data', icon: Database },
+  { id: 'macros', label: 'Macros', icon: Terminal },
+] as const;
 
 export default function App() {
   const [url, setUrl] = useState(() => localStorage.getItem('vmix-url') || 'http://127.0.0.1:8088');
@@ -33,6 +58,7 @@ export default function App() {
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [vMixState, setVMixState] = useState<VMixState | null>(null);
+  const [colourKeyConfigInput, setColourKeyConfigInput] = useState<VMixState['inputs'][0] | null>(null);
   const [isHttpsInsecure, setIsHttpsInsecure] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
@@ -58,7 +84,7 @@ export default function App() {
   const [newShortcutValue, setNewShortcutValue] = useState('');
   const [filter, setFilter] = useState('All');
   
-  const [mainTab, setMainTab] = useState<'inputs' | 'mixer' | 'titles' | 'lists' | 'macros'>('inputs');
+  const [mainTab, setMainTab] = useState<'dashboard' | 'inputs' | 'mixer' | 'titles' | 'lists' | 'macros' | 'ptz' | 'layers' | 'outputs' | 'image' | 'scripts' | 'data'>('inputs');
   const [macros, setMacros] = useState<{id: string, name: string, steps: {command: string, value: string, input: string, delay: number}[]}[]>(() => {
     const m = localStorage.getItem('vmix-macros-list');
     return m ? JSON.parse(m) : [];
@@ -153,10 +179,10 @@ export default function App() {
     };
   }, []);
 
-  const sendCommand = async (func: string, input?: string | number, value?: string) => {
+  const sendCommand = async (func: string, input?: string | number, value?: string | number, duration?: number) => {
     if (controller) {
       try {
-        await controller.sendCommand(func, input, value);
+        await controller.sendCommand(func, input, value, duration);
         // Optimistic fast poll
         if (pollTimeoutRef.current) clearTimeout(pollTimeoutRef.current);
         setTimeout(() => pollState(controller), 200);
@@ -169,18 +195,22 @@ export default function App() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!controller) return;
-      if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'SELECT') {
+      if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'SELECT' || document.activeElement?.tagName === 'TEXTAREA') {
         return;
       }
       const shortcut = shortcuts.find(s => s.code === e.code);
       if (shortcut) {
         e.preventDefault();
-        sendCommand(shortcut.command, shortcut.value ? shortcut.value : undefined);
+        if (shortcut.command === 'PlayLocalMacro' && shortcut.value) {
+           playMacro(shortcut.value);
+        } else {
+           sendCommand(shortcut.command, shortcut.value ? shortcut.value : undefined);
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [controller, shortcuts]);
+  }, [controller, shortcuts, macros]);
 
   const handleFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -286,29 +316,61 @@ export default function App() {
             <div>vMix <span className="text-white font-normal text-xs uppercase ml-1 opacity-60">Remote</span></div>
           </div>
           {isConnected && (
-            <div className="flex flex-wrap gap-3 text-[10px] font-mono justify-end">
-              <div className="flex items-center space-x-1">
+            <div className="flex flex-wrap gap-2 text-[10px] font-mono justify-end">
+              <button 
+                onClick={() => sendCommand('StartStopRecording')}
+                className={`flex items-center space-x-1 px-1.5 py-0.5 rounded border transition-colors ${vMixState?.recording ? 'bg-red-900/30 border-red-700 hover:bg-red-900/50' : 'bg-[#222] border-[#333] hover:bg-[#333]'}`}
+                title="Toggle Recording"
+              >
                  <div className={`w-2 h-2 rounded-full ${vMixState?.recording ? 'bg-red-600 shadow-[0_0_5px_#dc2626] animate-pulse' : 'bg-gray-700'}`}></div>
-                 <span className={vMixState?.recording ? 'text-red-500 font-bold' : 'text-gray-600'}>REC</span>
-              </div>
-              <div className="flex items-center space-x-1">
+                 <span className={vMixState?.recording ? 'text-red-500 font-bold' : 'text-gray-400 font-bold'}>REC</span>
+                 {vMixState?.recording && vMixState.recordingTime > 0 && <span className="text-red-300 ml-1">{formatSeconds(vMixState.recordingTime)}</span>}
+              </button>
+              <button 
+                onClick={() => sendCommand('StartStopStreaming')}
+                className={`flex items-center space-x-1 px-1.5 py-0.5 rounded border transition-colors ${vMixState?.streaming ? 'bg-blue-900/30 border-blue-700 hover:bg-blue-900/50' : 'bg-[#222] border-[#333] hover:bg-[#333]'}`}
+                title="Toggle Streaming"
+              >
                  <div className={`w-2 h-2 rounded-full ${vMixState?.streaming ? 'bg-blue-500 shadow-[0_0_5px_#3b82f6] animate-pulse' : 'bg-gray-700'}`}></div>
-                 <span className={vMixState?.streaming ? 'text-blue-400 font-bold' : 'text-gray-600'}>STREAM</span>
-              </div>
-              <div className="flex items-center space-x-1">
+                 <span className={vMixState?.streaming ? 'text-blue-400 font-bold' : 'text-gray-400 font-bold'}>STREAM</span>
+                 {vMixState?.streaming && vMixState.streamingTime > 0 && <span className="text-blue-300 ml-1">{formatSeconds(vMixState.streamingTime)}</span>}
+              </button>
+              <button 
+                onClick={() => sendCommand('StartStopExternal')}
+                className={`flex items-center space-x-1 px-1.5 py-0.5 rounded border transition-colors ${vMixState?.external ? 'bg-orange-900/30 border-orange-700 hover:bg-orange-900/50' : 'bg-[#222] border-[#333] hover:bg-[#333]'}`}
+                title="Toggle External Output"
+              >
                  <div className={`w-2 h-2 rounded-full ${vMixState?.external ? 'bg-orange-500 shadow-[0_0_5px_#f97316] animate-pulse' : 'bg-gray-700'}`}></div>
-                 <span className={vMixState?.external ? 'text-orange-400 font-bold' : 'text-gray-600'}>EXT</span>
-              </div>
-              <div className="flex items-center space-x-1">
+                 <span className={vMixState?.external ? 'text-orange-400 font-bold' : 'text-gray-400 font-bold'}>EXT</span>
+              </button>
+              <button 
+                onClick={() => sendCommand('StartStopMultiCorder')}
+                className={`flex items-center space-x-1 px-1.5 py-0.5 rounded border transition-colors ${vMixState?.multiCorder ? 'bg-purple-900/30 border-purple-700 hover:bg-purple-900/50' : 'bg-[#222] border-[#333] hover:bg-[#333]'}`}
+                title="Toggle MultiCorder"
+              >
                  <div className={`w-2 h-2 rounded-full ${vMixState?.multiCorder ? 'bg-purple-500 shadow-[0_0_5px_#a855f7] animate-pulse' : 'bg-gray-700'}`}></div>
-                 <span className={vMixState?.multiCorder ? 'text-purple-400 font-bold' : 'text-gray-600'}>MULTI</span>
-              </div>
+                 <span className={vMixState?.multiCorder ? 'text-purple-400 font-bold' : 'text-gray-400 font-bold'}>MULTI</span>
+              </button>
+              
+              {(vMixState?.streaming || vMixState?.recording) && (
+                 <div className="flex items-center ml-1 bg-red-600/20 border border-red-600 text-red-500 px-1.5 py-0.5 rounded">
+                     <span className="font-bold tracking-widest uppercase animate-pulse text-[10px]">ON AIR</span>
+                 </div>
+              )}
               <button 
                 onClick={() => setLiveThumbnails(!liveThumbnails)} 
                 className={`flex items-center space-x-1 px-1.5 py-0.5 rounded border transition-colors ${liveThumbnails ? 'bg-green-900/30 border-green-600 text-green-400' : 'bg-transparent border-gray-600 text-gray-500 hover:text-gray-300'}`}
+                title="Live Thumbnails (MJPEG)"
               >
                 <div className={`w-2 h-2 rounded-full ${liveThumbnails ? 'bg-green-500 animate-pulse' : 'bg-gray-600'}`}></div>
                 <span>LIVE TX</span>
+              </button>
+              <button 
+                onClick={() => setUseWebRTC(!useWebRTC)} 
+                className={`flex items-center space-x-1 px-1.5 py-0.5 rounded border transition-colors ${useWebRTC ? 'bg-orange-900/30 border-orange-600 text-orange-400' : 'bg-transparent border-gray-600 text-gray-500 hover:text-gray-300'}`}
+                title="Use WebRTC Stream for Program"
+              >
+                 <Video size={10} /> <span className="font-bold">WEBRTC</span>
               </button>
               <div className="hidden sm:flex items-center space-x-1"><div className="w-2 h-2 rounded-full bg-green-500"></div><span>API OK</span></div>
             </div>
@@ -336,11 +398,11 @@ export default function App() {
                />
             </div>
             {!isConnected ? (
-               <button type="submit" className="bg-[#333] hover:bg-[#444] text-[10px] font-bold text-white px-3 py-1 rounded border border-white/10 transition-colors uppercase shrink-0">
+               <button type="submit" className="bg-[#333] hover:bg-[#444] text-[10px] font-bold text-white px-3 py-1.5 rounded border border-white/10 transition-colors uppercase shrink-0">
                  Connect
                </button>
             ) : (
-               <button type="button" onClick={handleDisconnect} className="bg-orange-600 hover:bg-orange-500 text-[10px] font-bold text-white px-3 py-1 rounded border border-white/20 transition-colors uppercase shrink-0">
+               <button type="button" onClick={handleDisconnect} className="bg-orange-600 hover:bg-orange-500 text-[10px] font-bold text-white px-3 py-1.5 rounded border border-white/20 transition-colors uppercase shrink-0">
                  Disconnect
                </button>
             )}
@@ -367,37 +429,31 @@ export default function App() {
 
       <main className="flex-1 flex flex-col p-2 space-y-2 overflow-y-auto">
         
+        <StatusPanel vMixState={vMixState} sendCommand={sendCommand} />
+
         {/* TOP HALF: Monitors & Transitions */}
-        <div className="flex flex-col lg:flex-row min-h-[200px] lg:h-[40vh] space-y-2 lg:space-y-0 lg:space-x-2 shrink-0">
+        <div className="grid grid-cols-2 lg:flex lg:flex-row gap-2 shrink-0 min-h-[120px] lg:h-[40vh]">
           
           {/* PREVIEW WINDOW */}
           <div 
-            className="relative flex-1 bg-black border-4 border-green-600 rounded shadow-inner flex items-center justify-center min-h-[150px] overflow-hidden group"
-            style={(!useWebRTC && liveThumbnails && previewInput && url) ? {
+            className="col-span-1 lg:flex-1 relative bg-black border-[3px] border-green-600 rounded shadow-inner flex items-center justify-center min-h-[120px] overflow-hidden group"
+            style={(liveThumbnails && previewInput && url) ? {
               backgroundImage: `url("${url}/api/?thumbnail=${previewInput.key}&t=${thumbnailTick}")`,
               backgroundSize: 'contain',
               backgroundPosition: 'center',
               backgroundRepeat: 'no-repeat'
             } : {}}
           >
-            {useWebRTC && liveThumbnails && url && (
-               <iframe 
-                 src={`${url.replace(/:\d+$/, '')}:8089/`} 
-                 className="absolute inset-0 w-full h-full border-0 pointer-events-none opacity-50 grayscale"
-                 title="Preview WebRTC"
-                 sandbox="allow-same-origin allow-scripts"
-               ></iframe>
-            )}
-            <div className="absolute top-2 left-2 bg-green-600 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow z-10">PREVIEW</div>
-            <div className={`text-center px-4 z-10 w-full flex flex-col items-center transition-opacity ${liveThumbnails && previewInput ? 'opacity-0 group-hover:opacity-100 bg-black/60 p-4 rounded backdrop-blur-sm' : ''}`}>
-              <div className="text-2xl md:text-3xl lg:text-4xl font-bold opacity-20 italic truncate max-w-full">
+            <div className="absolute top-1 left-1 lg:top-2 lg:left-2 bg-green-600 text-white text-[9px] lg:text-[10px] font-bold px-1.5 py-0.5 rounded shadow z-10">PREVIEW</div>
+            <div className={`text-center px-1 lg:px-4 z-10 w-full flex flex-col items-center transition-opacity ${liveThumbnails && previewInput ? 'opacity-0 group-hover:opacity-100 bg-black/60 p-2 lg:p-4 rounded backdrop-blur-sm' : ''}`}>
+              <div className="text-xl sm:text-2xl lg:text-4xl font-bold opacity-20 italic truncate max-w-full">
                  {previewInput ? previewInput.title : 'NO SOURCE'}
               </div>
-              <div className="text-[10px] uppercase tracking-widest opacity-30 mt-2 truncate max-w-full">
+              <div className="hidden lg:block text-[10px] uppercase tracking-widest opacity-30 mt-2 truncate max-w-full">
                  {previewInput ? previewInput.shortTitle : '---'}
               </div>
               {previewInput && previewInput.duration > 0 && (
-                <div className="mt-4 font-mono text-xl sm:text-2xl lg:text-3xl font-bold text-gray-300 bg-black/50 px-3 py-1 rounded shadow-inner tracking-wider">
+                <div className="mt-2 lg:mt-4 font-mono text-sm sm:text-xl lg:text-3xl font-bold text-gray-300 bg-black/50 px-2 lg:px-3 py-1 rounded shadow-inner tracking-wider">
                   -{formatTime(previewInput.duration - previewInput.position)}
                 </div>
               )}
@@ -417,30 +473,13 @@ export default function App() {
             </div>
           </div>
 
-          {/* TRANSITION COLUMN */}
-          <div className="flex flex-row lg:flex-col justify-center space-x-1 lg:space-x-0 lg:space-y-1 w-full lg:w-24 shrink-0">
-            <button onClick={() => sendCommand('Cut')} className="flex-1 lg:flex-none bg-[#333] hover:bg-[#444] text-[10px] font-bold py-3 rounded border border-white/10 uppercase transition-colors">Cut</button>
-            <button onClick={() => sendCommand('Fade')} className="flex-1 lg:flex-none bg-[#333] hover:bg-[#444] text-[10px] font-bold py-3 rounded border border-white/10 uppercase transition-colors">Fade</button>
-            <button onClick={() => sendCommand('Merge')} className="flex-1 lg:flex-none bg-[#333] hover:bg-[#444] text-[10px] font-bold py-3 rounded border border-white/10 uppercase transition-colors">Merge</button>
-            
-            <div className="hidden lg:flex flex-1 my-2 bg-[#111] rounded relative overflow-hidden flex-col items-center justify-center border border-[#222] group py-4">
-              <span className="absolute text-[#333] font-mono text-[10px] uppercase pointer-events-none group-hover:opacity-0 transition-opacity whitespace-nowrap" style={{ transform: 'rotate(-90deg)' }}>T-Bar</span>
-              <input 
-                type="range" 
-                min="0" max="255" 
-                defaultValue="0"
-                onChange={(e) => sendCommand('SetFader', parseInt(e.target.value))}
-                className="w-2 h-full appearance-none bg-black rounded-full outline-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-8 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:bg-orange-600 [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:rounded relative z-10 opacity-70 group-hover:opacity-100 transition-opacity"
-                style={{ WebkitAppearance: 'slider-vertical' } as any}
-              />
-            </div>
-            
-            <button onClick={() => sendCommand('Wipe')} className="flex-1 lg:flex-none bg-[#333] hover:bg-[#444] text-[10px] font-bold py-3 rounded border border-white/10 uppercase transition-colors">Wipe</button>
+          <div className="col-span-2 order-3 lg:order-none lg:w-28 flex shrink-0">
+             <TransitionPanel sendCommand={sendCommand} />
           </div>
 
           {/* PROGRAM WINDOW */}
           <div 
-            className="relative flex-1 bg-black border-4 border-red-600 rounded shadow-inner flex items-center justify-center min-h-[150px] overflow-hidden group"
+            className="col-span-1 lg:flex-1 relative bg-black border-[3px] border-red-600 rounded shadow-inner flex items-center justify-center min-h-[120px] overflow-hidden group"
             style={(!useWebRTC && liveThumbnails && activeInput && url) ? {
               backgroundImage: `url("${url}/api/?thumbnail=${activeInput.key}&t=${thumbnailTick}")`,
               backgroundSize: 'contain',
@@ -448,27 +487,27 @@ export default function App() {
               backgroundRepeat: 'no-repeat'
             } : {}}
           >
-            {useWebRTC && liveThumbnails && url && (
+            {useWebRTC && url && (
                <iframe 
                  src={`${url.replace(/:\d+$/, '')}:8089/`} 
-                 className="absolute inset-0 w-full h-full border-0 pointer-events-none"
+                 className="absolute inset-0 w-full h-full border-0"
                  title="Program WebRTC"
-                 sandbox="allow-same-origin allow-scripts"
+                 allow="autoplay; fullscreen"
                ></iframe>
             )}
-            <div className="absolute top-2 left-2 bg-red-600 text-white text-[10px] font-bold px-2 py-0.5 rounded flex items-center space-x-1 shadow z-10">
-               <Radio size={10} className="animate-pulse" /> <span>PROGRAM</span>
+            <div className="absolute top-1 left-1 lg:top-2 lg:left-2 bg-red-600 text-white text-[9px] lg:text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center space-x-1 shadow z-10">
+               <Radio size={8} className="animate-pulse lg:w-[10px] lg:h-[10px]" /> <span>PROGRAM</span>
             </div>
-            <div className={`text-center px-4 w-full flex flex-col items-center z-10 transition-opacity ${liveThumbnails && activeInput ? 'opacity-0 group-hover:opacity-100 bg-black/60 p-4 rounded backdrop-blur-sm' : ''}`}>
-              <div className="text-2xl md:text-3xl lg:text-4xl font-bold italic truncate drop-shadow-lg max-w-full">
+            <div className={`text-center px-1 lg:px-4 w-full flex flex-col items-center z-10 transition-opacity ${liveThumbnails && activeInput ? 'opacity-0 group-hover:opacity-100 bg-black/60 p-2 lg:p-4 rounded backdrop-blur-sm' : ''}`}>
+              <div className="text-xl sm:text-2xl lg:text-4xl font-bold italic truncate drop-shadow-lg max-w-full opacity-20">
                  {activeInput ? activeInput.title : 'NO SOURCE'}
               </div>
-              <div className="text-[10px] uppercase tracking-widest opacity-60 mt-2 truncate max-w-full">
+              <div className="hidden lg:block text-[10px] uppercase tracking-widest opacity-60 mt-2 truncate max-w-full">
                  {activeInput ? activeInput.shortTitle : '---'}
               </div>
               
               {activeInput && activeInput.duration > 0 && (
-                <div className={`mt-4 font-mono text-3xl sm:text-4xl lg:text-5xl font-bold bg-black/60 px-4 py-1.5 rounded shadow-xl tracking-wider ${
+                <div className={`mt-2 lg:mt-4 font-mono text-sm sm:text-2xl lg:text-5xl font-bold bg-black/60 px-2 lg:px-4 py-1 lg:py-1.5 rounded shadow-xl tracking-wider ${
                   (activeInput.duration - activeInput.position) < 10000 ? 'text-red-500 animate-pulse' : 'text-white'
                 }`}>
                   -{formatTime(activeInput.duration - activeInput.position)}
@@ -500,14 +539,16 @@ export default function App() {
           <div className="flex-1 bg-[#1e1e1e] border border-[#333] rounded flex flex-col h-full overflow-hidden">
             <div className="flex flex-col sm:flex-row justify-between sm:items-center px-3 py-2 shrink-0 border-b border-[#333] bg-[#161616] gap-2">
                <div className="flex flex-wrap items-center gap-2">
-                 <div className="flex flex-wrap gap-1">
-                   {(['inputs', 'mixer', 'ptz', 'titles', 'lists', 'macros'] as const).map(tab => (
+                 <div className="flex overflow-x-auto scrollbar-hide space-x-1 pb-1 sm:pb-0 w-full lg:w-auto">
+                   {MAIN_TABS.map(tab => (
                      <button 
-                       key={tab} 
-                       onClick={() => setMainTab(tab)} 
-                       className={`px-3 py-1.5 text-[10px] uppercase font-bold tracking-wider rounded transition-colors ${mainTab === tab ? 'bg-orange-600 text-white' : 'bg-[#222] text-gray-400 hover:bg-[#333]'}`}
+                       key={tab.id} 
+                       onClick={() => setMainTab(tab.id as any)} 
+                       className={`flex items-center gap-1.5 px-3 py-1.5 text-[10px] uppercase font-bold tracking-wider rounded transition-colors whitespace-nowrap shrink-0 border ${mainTab === tab.id ? 'bg-orange-600 border-orange-500 text-white shadow-[0_0_10px_rgba(249,115,22,0.3)]' : 'bg-[#111] border-[#333] text-gray-400 hover:bg-[#222]'}`}
+                       title={tab.label}
                      >
-                       {tab}
+                       <tab.icon size={12} strokeWidth={2.5} />
+                       <span>{tab.label}</span>
                      </button>
                    ))}
                  </div>
@@ -546,16 +587,23 @@ export default function App() {
                                     onClick={() => sendCommand('SetPreview', input.number)}
                                     onDirectCut={() => sendCommand('ActiveInput', input.number)}
                                     onCommand={(func, val) => sendCommand(func, input.number, val)}
+                                    onColourKeyConfig={() => setColourKeyConfigInput(input)}
                                  />
                               ))}
                            </div>
                         </div>
                      )}
+                     {mainTab === 'dashboard' && <Dashboard vMixState={vMixState!} sendCommand={sendCommand} macros={macros} playMacro={playMacro} vmixUrl={url} onColourKeyConfig={setColourKeyConfigInput} />}
                      {mainTab === 'mixer' && <AudioMixer vMixState={vMixState!} sendCommand={sendCommand} />}
                      {mainTab === 'ptz' && <PTZControls vMixState={vMixState!} sendCommand={sendCommand} />}
                      {mainTab === 'titles' && <TitleEditor vMixState={vMixState!} sendCommand={sendCommand} />}
                      {mainTab === 'lists' && <ListEditor vMixState={vMixState!} sendCommand={sendCommand} />}
-                     {mainTab === 'macros' && <MacroBuilder macros={macros} setMacros={setMacros} playMacro={playMacro} />}
+                     {mainTab === 'outputs' && <OutputsEditor vMixState={vMixState!} sendCommand={sendCommand} />}
+                     {mainTab === 'macros' && <MacroBuilder macros={macros} setMacros={setMacros} playMacro={playMacro} vMixState={vMixState!} />}
+                     {mainTab === 'layers' && <MultiViewEditor vMixState={vMixState!} sendCommand={sendCommand} />}
+                     {mainTab === 'image' && <ImageAdjustEditor vMixState={vMixState!} sendCommand={sendCommand} />}
+                     {mainTab === 'scripts' && <PlaylistsScriptsEditor vMixState={vMixState!} sendCommand={sendCommand} />}
+                     {mainTab === 'data' && <SocialDataEditor vMixState={vMixState!} sendCommand={sendCommand} />}
                   </>
                )}
             </div>
@@ -582,21 +630,31 @@ export default function App() {
                     </button>
                   );
                })}
-               <button onClick={() => sendCommand('StartStopRecording')} className="col-span-4 lg:col-span-2 mt-2 bg-[#252525] hover:bg-red-900/40 text-red-400 border border-transparent text-[10px] font-bold py-3 rounded uppercase transition-colors flex items-center justify-center space-x-2">
-                 <div className={`w-2 h-2 rounded-full ${vMixState?.recording ? 'bg-red-600 shadow-[0_0_5px_#dc2626] animate-pulse' : 'bg-red-900'}`}></div>
-                 <span>Toggle Rec</span>
+               <button 
+                 onClick={() => {
+                   [1, 2, 3, 4].forEach(num => sendCommand(`OverlayInput${num}Off`));
+                 }} 
+                 className="col-span-4 lg:col-span-2 mt-2 bg-[#252525] hover:bg-red-900/40 text-red-500 border border-[#333] text-[9px] font-bold py-2 rounded uppercase transition-colors flex items-center justify-center shadow-lg"
+               >
+                 Clear All OVL
                </button>
-               <button onClick={() => sendCommand('StartStopStreaming')} className="col-span-4 lg:col-span-2 bg-[#252525] hover:bg-blue-900/40 text-blue-400 border border-transparent text-[10px] font-bold py-3 rounded uppercase transition-colors flex items-center justify-center space-x-2">
-                 <div className={`w-2 h-2 rounded-full ${vMixState?.streaming ? 'bg-blue-500 shadow-[0_0_5px_#3b82f6] animate-pulse' : 'bg-blue-900'}`}></div>
-                 <span>Toggle Stream</span>
+               <button 
+                 onClick={() => sendCommand('PlayPause')} 
+                 className="col-span-4 lg:col-span-2 mt-2 bg-[#252525] hover:bg-green-900/40 text-green-500 border border-[#333] text-[9px] font-bold py-2 rounded uppercase transition-colors flex items-center justify-center shadow-lg"
+               >
+                 Master Play
                </button>
-               <button onClick={() => sendCommand('StartStopExternal')} className="col-span-4 lg:col-span-2 bg-[#252525] hover:bg-orange-900/40 text-orange-400 border border-transparent text-[10px] font-bold py-3 rounded uppercase transition-colors flex items-center justify-center space-x-2">
-                 <div className={`w-2 h-2 rounded-full ${vMixState?.external ? 'bg-orange-500 shadow-[0_0_5px_#f97316] animate-pulse' : 'bg-orange-900'}`}></div>
-                 <span>Toggle Ext</span>
+               <button 
+                 onClick={() => sendCommand('RestartAll')} 
+                 className="col-span-4 lg:col-span-2 mt-2 bg-[#252525] hover:bg-blue-900/40 text-blue-500 border border-[#333] text-[9px] font-bold py-2 rounded uppercase transition-colors flex items-center justify-center shadow-lg"
+               >
+                 Restart All
                </button>
-               <button onClick={() => sendCommand('StartStopMultiCorder')} className="col-span-4 lg:col-span-2 bg-[#252525] hover:bg-purple-900/40 text-purple-400 border border-transparent text-[10px] font-bold py-3 rounded uppercase transition-colors flex items-center justify-center space-x-2">
-                 <div className={`w-2 h-2 rounded-full ${vMixState?.multiCorder ? 'bg-purple-500 shadow-[0_0_5px_#a855f7] animate-pulse' : 'bg-purple-900'}`}></div>
-                 <span>MultiCorder</span>
+               <button 
+                 onClick={() => sendCommand('FadeToBlack')} 
+                 className="col-span-4 lg:col-span-2 mt-2 col-start-1 bg-[#1a1a1a] hover:bg-black text-gray-400 border border-[#222] text-[9px] font-bold py-2 rounded uppercase transition-colors flex items-center justify-center shadow-lg"
+               >
+                 Fade To Black
                </button>
              </div>
           </div>
@@ -758,7 +816,8 @@ export default function App() {
                        >
                          {AVAILABLE_COMMANDS.map(cmd => <option key={cmd} value={cmd}>{cmd}</option>)}
                        </select>
-                       {['SetPreview', 'ActiveInput'].includes(newShortcutCommand) && (
+
+                       {['SetPreview', 'ActiveInput', 'Cut', 'Fade', 'Merge', 'Wipe', 'Audio', 'OverlayInput1', 'OverlayInput2', 'OverlayInput3', 'OverlayInput4', 'ColourKey', 'ColourKeyOn', 'ColourKeyOff'].includes(newShortcutCommand) && (
                           <input 
                              type="text"
                              placeholder="Input #"
@@ -767,6 +826,18 @@ export default function App() {
                              className="w-16 shrink-0 bg-[#1e1e1e] border border-[#444] rounded px-2 py-1.5 focus:outline-none focus:border-orange-500 text-gray-300 font-mono text-xs"
                           />
                        )}
+
+                       {newShortcutCommand === 'PlayLocalMacro' && (
+                          <select
+                             value={newShortcutValue}
+                             onChange={(e) => setNewShortcutValue(e.target.value)}
+                             className="w-32 shrink-0 bg-[#1e1e1e] border border-[#444] rounded px-2 py-1.5 focus:outline-none focus:border-orange-500 text-gray-300 font-mono text-xs truncate"
+                          >
+                             <option value="" disabled>Select Macro</option>
+                             {macros.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                          </select>
+                       )}
+
                        <button 
                           onClick={() => {
                              if (!newShortcutCode) return;
@@ -903,6 +974,16 @@ export default function App() {
         </div>
       )}
 
+      {/* COLOUR KEY CONFIG */}
+      {colourKeyConfigInput && vMixState && (
+         <ColourKeyConfig
+            input={colourKeyConfigInput}
+            vMixState={vMixState}
+            sendCommand={sendCommand}
+            onClose={() => setColourKeyConfigInput(null)}
+         />
+      )}
+
       {/* TALLY MODE */}
       {isTallyOpen && <TallyMode vMixState={vMixState} onExit={() => setIsTallyOpen(false)} />}
 
@@ -951,40 +1032,54 @@ export default function App() {
                 <h3 className="text-orange-400 font-bold text-xs uppercase tracking-wider mb-2">Controls & Features</h3>
                 <ul className="list-disc list-inside text-sm text-gray-300 space-y-2">
                   <li>
-                    <strong>Views Tabs:</strong> Switch between main panels: INPUTS, MIXER, PTZ, TITLES, LISTS, and MACROS.
+                    <strong>Views Tabs:</strong> Switch between: DASH, INPUTS, AUDIO, LAYERS, TITLES, OUTPUTS, PTZ, MACROS, COLOR, SCRIPTS, DATA.
                   </li>
                   <li>
-                    <strong>Inputs & Live TX:</strong> Click to Preview, click PGM to cut live. Toggle "LIVE TX" for thumbnail previews. In Settings, enable "Use WebRTC" for low-latency 30/60 FPS Program/Preview video.
+                    <strong>Live Streams & Recording:</strong> Top status bar pulses when active. Direct toggles for Master Stream, individual Streams 1-3, Rec, and Ext.
                   </li>
                   <li>
-                    <strong>Audio Mixer:</strong> Master and Audio Bus (A-G) routing, live VU meters, Solo/Headphone, and Fader control for all audio sources.
+                    <strong>Inputs & DSK:</strong> Click to Preview, click PGM to cut live. Use the mini [1|2|3|4] buttons on each card to set DSK overlays.
                   </li>
                   <li>
-                    <strong>PTZ Controller:</strong> Control Pan, Tilt, Zoom, and Presets for your PTZ/NDI cameras visually via virtual joystick and presets.
+                    <strong>Audio Mixer:</strong> Master/Bus routing, live VU meters, Faders, plus live toggles for EQ, Compressor, and Auto-Gain.
                   </li>
                   <li>
-                    <strong>Tally Mode:</strong> Full-screen Tally indicator (Live/Preview) for camera operators.
+                    <strong>Transitions & MultiView:</strong> Use the Digital T-Bar. Set custom Msec durations for Wipe, Cube, Fade. Configure up to 10 sub-layers inside the Layers tab.
                   </li>
                   <li>
-                    <strong>Titles & Lists:</strong> Edit Title/GT text fields live. View and manage media via List inputs.
+                    <strong>Image & Position:</strong> Adjust Lift, Gamma, Gain, and Virtual PTZ (Zoom/Pan X/Y) in the Color tab.
                   </li>
                   <li>
-                    <strong>Settings (Backup):</strong> Change polling rates, toggle WebRTC. Export your custom Macros and Shortcuts to a JSON backup and Restore them as needed.
+                    <strong>Social & Data:</strong> Control vMix Social queues and database rows (NextRow/PrevRow) from the Data tab.
                   </li>
                 </ul>
               </div>
 
               <div>
                 <h3 className="text-orange-400 font-bold text-xs uppercase tracking-wider mb-2">Apps & Install (Windows / Android)</h3>
-                <ol className="list-decimal list-inside text-sm text-gray-300 space-y-1">
-                  <li><strong>Browser Install (PWA):</strong> This web application can be installed directly to your device!
-                    <ul className="list-disc list-inside ml-4 mt-1 text-xs text-gray-400">
-                       <li><strong>Windows (Chrome/Edge):</strong> Click the "Install App" or "App available" icon in the right side of your URL bar, or open the browser menu and select "Install vMix Web Controller".</li>
-                       <li><strong>Android:</strong> Open this page in Chrome, tap the 3-dot menu, and tap "Add to Home screen". It will act as a native fullscreen app.</li>
+                <div className="text-sm text-gray-300 space-y-4">
+                  <div>
+                    <strong>1. Browser Install (PWA):</strong> This web application can be installed directly to your device!
+                    <ul className="list-disc list-inside mt-1 text-xs text-gray-400 space-y-1">
+                       <li><strong>Mobile (Android / iOS):</strong> Open this page in Chrome or Safari, tap the Share or 3-dot menu, and select <strong>"Add to Home screen"</strong>. It will act as a native fullscreen app.</li>
+                       <li><strong>Windows (Chrome/Edge):</strong> Click the "App available" icon in the right side of your URL bar, or open the browser menu and select "Install vMix Web Controller".</li>
                     </ul>
-                  </li>
-                  <li className="mt-2"><strong>Offline Windows Package:</strong> In Google AI Studio, click <strong>Share / Export</strong> and download this project as a ZIP file. Extract it and run <code>start-windows.bat</code> to run it entirely offline on Windows.</li>
-                </ol>
+                  </div>
+
+                  <div className="bg-[#111] p-3 rounded border border-[#333]">
+                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                      <div>
+                        <strong className="text-white">2. Download for Local Network:</strong>
+                        <p className="text-xs text-gray-400 mt-1">
+                          If you are having connection issues due to HTTPS/HTTP mixed content, you can download this entire app, extract it, and run it locally on your own computer or server.
+                        </p>
+                      </div>
+                      <a href="/vmix-app.zip" download className="bg-orange-600 hover:bg-orange-500 text-white font-bold text-xs px-4 py-2 rounded uppercase text-center transition-colors shrink-0 flex items-center justify-center">
+                         Download Static Web App
+                      </a>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div>

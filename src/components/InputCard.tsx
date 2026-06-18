@@ -1,6 +1,6 @@
 import React from 'react';
 import { VMixInput } from '../types';
-import { Play, Pause, VolumeX, Volume2, RotateCcw } from 'lucide-react';
+import { Play, Pause, VolumeX, Volume2, RotateCcw, Droplet } from 'lucide-react';
 import { formatTime } from '../utils';
 
 interface Props {
@@ -11,9 +11,10 @@ interface Props {
   onClick: () => void;
   onDirectCut: () => void;
   onCommand: (func: string, value?: string) => void;
+  onColourKeyConfig?: () => void;
 }
 
-export function InputCard({ input, vmixUrl, isActive, isPreview, onClick, onDirectCut, onCommand }: Props) {
+export function InputCard({ input, vmixUrl, isActive, isPreview, onClick, onDirectCut, onCommand, onColourKeyConfig }: Props) {
   let borderColor = 'border-transparent';
   let numberColor = 'text-gray-300';
   let pgmBg = 'bg-[#333]';
@@ -67,6 +68,22 @@ export function InputCard({ input, vmixUrl, isActive, isPreview, onClick, onDire
            <button onClick={handleMute} className="hover:text-white" title="Toggle Audio">
              {input.muted ? <VolumeX size={10} className="text-red-400" /> : <Volume2 size={10} className="text-green-500" />}
            </button>
+           <div className="flex border border-cyan-800 rounded bg-cyan-900/20 divide-x divide-cyan-800">
+             <button 
+               onClick={(e) => { e.stopPropagation(); onCommand('ColourKey'); }} 
+               className="text-cyan-600 hover:text-white px-1 py-0.5" 
+               title="Toggle Colour Key (Chroma)"
+             >
+               <Droplet size={10} />
+             </button>
+             <button 
+               onClick={(e) => { e.stopPropagation(); if (onColourKeyConfig) onColourKeyConfig(); }} 
+               className="text-cyan-600 hover:text-white px-0.5 py-0.5" 
+               title="Colour Key Settings"
+             >
+               <span className="text-[8px] leading-none mb-1 text-cyan-700">▼</span>
+             </button>
+           </div>
            {['Running', 'Paused'].includes(input.state) && (
              <>
                 <button onClick={handlePlayPause} className="hover:text-white" title="Play/Pause">
@@ -75,10 +92,35 @@ export function InputCard({ input, vmixUrl, isActive, isPreview, onClick, onDire
                 <button onClick={handleRestart} className="hover:text-white" title="Restart">
                   <RotateCcw size={10} className="text-blue-400" />
                 </button>
+                <button 
+                   onClick={(e) => { e.stopPropagation(); onCommand('Loop'); }} 
+                   className="hover:text-white text-[8px] font-bold text-gray-500 hover:bg-gray-800 rounded px-1" 
+                   title="Toggle Loop"
+                >
+                  LOOP
+                </button>
+             </>
+           )}
+           {['VideoList', 'List', 'PowerPoint'].includes(input.type) && (
+             <>
+                <button 
+                   onClick={(e) => { e.stopPropagation(); onCommand('PreviousItem'); }} 
+                   className="hover:text-white text-[8px] font-bold text-gray-500 hover:bg-gray-800 rounded px-1" 
+                   title="Previous Item"
+                >
+                  ⏮
+                </button>
+                <button 
+                   onClick={(e) => { e.stopPropagation(); onCommand('NextItem'); }} 
+                   className="hover:text-white text-[8px] font-bold text-gray-500 hover:bg-gray-800 rounded px-1" 
+                   title="Next Item"
+                >
+                  ⏭
+                </button>
              </>
            )}
         </div>
-        <span className="text-[8px] opacity-50 uppercase truncate max-w-[40%]">{input.type}</span>
+        <span className="text-[8px] opacity-50 uppercase truncate ml-2 max-w-[40%] text-right">{input.type}</span>
       </div>
       
       <div 
@@ -119,9 +161,9 @@ export function InputCard({ input, vmixUrl, isActive, isPreview, onClick, onDire
         </div>
       </div>
 
-      <div className="mt-1 flex space-x-1 shrink-0">
+      <div className="mt-1 flex space-x-1 shrink-0 relative z-20">
         <button 
-          className={`flex-1 text-[8px] py-1 rounded transition-colors ${pgmBg} ${pgmBorder} hover:bg-red-700/80`}
+          className={`flex-1 text-[8px] py-1 rounded transition-colors ${pgmBg} ${pgmBorder} hover:bg-red-700/80 font-bold`}
           onClick={(e) => {
             e.stopPropagation();
             onDirectCut();
@@ -130,7 +172,7 @@ export function InputCard({ input, vmixUrl, isActive, isPreview, onClick, onDire
           PGM
         </button>
         <button 
-          className={`flex-1 text-[8px] py-1 rounded transition-colors ${pvwBg} ${pvwBorder} hover:bg-green-700/80`}
+          className={`flex-1 text-[8px] py-1 rounded transition-colors ${pvwBg} ${pvwBorder} hover:bg-green-700/80 font-bold`}
           onClick={(e) => {
              e.stopPropagation();
              onClick(); // Set Preview
@@ -138,6 +180,21 @@ export function InputCard({ input, vmixUrl, isActive, isPreview, onClick, onDire
         >
           PVW
         </button>
+        <div className="flex bg-[#111] rounded divide-x divide-[#333] border border-[#333]">
+           {[1, 2, 3, 4].map(num => (
+              <button 
+                key={num}
+                className="px-1.5 text-[8px] hover:bg-blue-900/50 text-gray-400 hover:text-white transition-colors"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onCommand(`OverlayInput${num}`);
+                }}
+                title={`Toggle DSK ${num}`}
+              >
+                {num}
+              </button>
+           ))}
+        </div>
       </div>
     </div>
   );

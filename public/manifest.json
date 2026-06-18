@@ -1,0 +1,17 @@
+{
+  "name": "vMix Web Controller",
+  "short_name": "vMix Panel",
+  "description": "vMix Web Interface",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#121212",
+  "theme_color": "#ea580c",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

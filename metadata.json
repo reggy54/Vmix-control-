@@ -1,5 +1,7 @@
 {
   "name": "vMix Web Controller",
-  "description": "A remote control interface and switcher for vMix video production software over HTTP API.",
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "description": "A powerful web remote control interface for vMix video production software over HTTP API.",
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }
