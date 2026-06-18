@@ -1114,12 +1114,7 @@ export default function App() {
                     {/* Troubleshooting dynamic __cookie_check tip */}
                     <div className="bg-amber-900/10 border border-amber-800/30 p-3 rounded text-xs text-amber-200/90 leading-relaxed mb-3">
                       <strong className="text-amber-400 block mb-1">⚠️ Если скачивается файл «__cookie_check» вместо ZIP или HTML:</strong>
-                      Это происходит из-за того, что браузер блокирует скачивание файлов внутри встроенного превью-окна (iframe) Google AI Studio. Чтобы скачать файлы без проблем:
-                      <ol className="list-decimal list-inside mt-1.5 space-y-1">
-                        <li>Нажмите кнопку <strong className="text-white">“Открыть в новой вкладке”</strong> (стрелочка в правом верхнем углу экрана).</li>
-                        <li>На новой вкладке скачивание сработает мгновенно и правильно!</li>
-                        <li>Или используйте кнопку <strong className="text-white">«Скопировать код»</strong> ниже – это работает всегда и везде!</li>
-                      </ol>
+                      Это происходит из-за того, что браузер блокирует скачивание файлов внутри встроенного превью-окна (iframe) Google AI Studio. Вы можете открыть приложение в новой вкладке (по ссылке сверху справа), либо используйте кнопку <strong className="text-white">«Скопировать код»</strong> ниже – это работает всегда и везде!
                     </div>
 
                     <div className="bg-[#111] p-3 rounded border border-[#333] mb-3 space-y-3">
@@ -1133,7 +1128,7 @@ export default function App() {
                         <button
                           onClick={() => secureDownload('vmix-app.zip', './vmix-app.zip', setDownloadingZip)}
                           disabled={downloadingZip}
-                          className="bg-orange-600 hover:bg-orange-500 disabled:bg-orange-800 disabled:text-gray-400 text-white font-bold text-xs px-4 py-2 rounded uppercase text-center transition-colors shrink-0 flex items-center justify-center min-w-[140px]"
+                          className="bg-orange-600 hover:bg-orange-500 disabled:bg-gray-700 text-white font-bold text-xs px-4 py-2 rounded uppercase text-center transition-colors shrink-0 flex items-center justify-center min-w-[140px]"
                         >
                           {downloadingZip ? 'Скачивание...' : 'Скачать ZIP'}
                         </button>
@@ -1177,16 +1172,42 @@ export default function App() {
                   </div>
 
                   <div>
-                    <strong className="text-orange-300 font-semibold block mb-1">2. Как установить на телефон (как отдельное PWA-приложение):</strong>
+                    <strong className="text-orange-300 font-semibold block mb-1">2. Как установить на телефон (как PWA):</strong>
                     <p className="text-xs text-gray-400 leading-relaxed">
-                      Вы можете установить приложение на мобильный телефон прямо через браузер. Оно будет запускаться на весь экран, иметь собственный ярлык в меню приложений и работать оффлайн:
+                      Вы можете установить приложение на телефон прямо из браузера. Оно будет работать на весь экран, оффлайн и иметь собственный ярлык:
                     </p>
-                    <ul className="list-disc list-inside mt-2 text-xs text-gray-400 space-y-1">
-                       <li><strong>Android (через Chrome):</strong> Откройте сайт, нажмите на значок меню (три точки справа сверху) и выберите пункт <strong>«Добавить на главный экран»</strong> или <strong>«Установить приложение»</strong>.</li>
-                       <li><strong>iOS / iPhone (через Safari):</strong> Откройте сайт, нажмите на кнопку <strong>«Поделиться»</strong> (квадрат со стрелкой вверх внизу экрана) и выберите пункт <strong>«На экран "Домой"»</strong>.</li>
+                    <ul className="list-disc list-inside mt-1.5 text-xs text-gray-400 space-y-1">
+                       <li><strong>Android (Chrome):</strong> Нажмите меню (три точки) {"→"} <strong>«Добавить на главный экран»</strong> или <strong>«Установить приложение»</strong>.</li>
+                       <li><strong>iOS / iPhone (Safari):</strong> Нажмите кнопку <strong>«Поделиться»</strong> {"→"} <strong>«На экран "Домой"»</strong>.</li>
                     </ul>
                   </div>
 
+                  {/* BAT -> EXE guide */}
+                  <div className="bg-orange-950/15 border border-orange-900/30 p-3 rounded">
+                    <strong className="text-orange-400 font-semibold block mb-1">🚀 Как создать полноценный файл .EXE (без сторонних программ):</strong>
+                    <p className="text-xs text-gray-400 leading-relaxed mb-2">
+                       Скачанный ZIP-архив уже содержит файл <code className="text-white">Запустить как Приложение.bat</code>. Он запускает контроллер в изящном оконном режиме (без адресной строки и вкладок Chrome) — выглядит на 100% как десктопное приложение!
+                    </p>
+                    <p className="text-xs text-gray-400 leading-relaxed mb-2">
+                      <strong>Чтобы превратить этот BAT-файл в настоящий .EXE (Способ 1 через встроенный «IExpress» в Windows):</strong>
+                    </p>
+                    <ol className="list-decimal list-inside text-[11px] text-gray-400 space-y-1.5 leading-relaxed">
+                      <li>Нажмите <kbd className="bg-[#222] px-1 py-0.5 rounded text-white font-mono">Win + R</kbd>, введите <code className="text-orange-300 font-bold">iexpress</code> и нажмите Enter. Откроется встроенная утилита Windows для создания пакетов.</li>
+                      <li>Выберите <strong>"Create new Self Extraction Directive file"</strong> {"→"} Далее.</li>
+                      <li>Выберите <strong>"Extract files and run an installation command"</strong> {"→"} Далее.</li>
+                      <li>Укажите любое имя пакета (например, <code className="text-white">vMix Controller</code>) {"→"} Далее.</li>
+                      <li>Выберите <strong>"No prompt"</strong> и <strong>"Do not display a license"</strong> {"→"} Далее.</li>
+                      <li>Нажмите <strong>«Add»</strong> и добавьте <strong className="text-white">все файлы</strong> из Вашей распакованной папки (включая <code className="text-white">index.html</code>, <code className="text-white">Запустить как Приложение.bat</code>, папку assets и т.д.).</li>
+                      <li>В поле <strong>"Install Program"</strong> введите: <code className="text-orange-300 font-bold">cmd /c "Запустить как Приложение.bat"</code>, а поле "Post Install Command" оставьте пустым.</li>
+                      <li>В окне <strong>"Show window"</strong> выберите <strong>"Hidden"</strong>, чтобы при запуске не выскакивало консольное черное окно.</li>
+                      <li>В окне "Finished message" выберите <strong>"No message"</strong>.</li>
+                      <li>В поле <strong>"Package Name and Options"</strong> нажмите "Browse" и выберите, куда сохранить готовый <strong className="text-orange-400 font-bold">.EXE файл</strong>. Установите галочки "Hide File Extracting Progress Animation".</li>
+                      <li>Выберите <strong>"No restart"</strong> {"→"} Далее {"→"} Нажмите Далее до завершения.</li>
+                    </ol>
+                    <p className="text-[11px] text-gray-400 leading-relaxed mt-2 p-1 bg-black/30 rounded border border-orange-950/40">
+                      💡 Готово! Вы получите единый файл <code className="text-white">.exe</code>, который запускается мгновенно на любом компьютере и на 100% автономен. Также, если хотите кастомизировать иконку, Вы можете использовать бесплатную утилиту <strong>BAT to EXE Converter</strong>.
+                    </p>
+                  </div>
                 </div>
               </div>
 

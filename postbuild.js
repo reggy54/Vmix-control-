@@ -38,6 +38,40 @@ if (fs.existsSync(distZipPath)) {
   } catch (e) {}
 }
 
+// Create a premium Windows .bat launcher inside dist/ so it gets inlined inside the ZIP!
+const batContent = `@echo off
+title vMix Web Controller Launcher
+cls
+echo Starting vMix Web Controller in desktop app mode...
+echo.
+
+:: Check if Google Chrome exists in standard locations to run in app mode (like a real desktop .exe app!)
+set "CHROME_PATH="
+if exist "%ProgramFiles%\\Google\\Chrome\\Application\\chrome.exe" (
+    set "CHROME_PATH=%ProgramFiles%\\Google\\Chrome\\Application\\chrome.exe"
+) else if exist "%ProgramFiles(x86)%\\Google\\Chrome\\Application\\chrome.exe" (
+    set "CHROME_PATH=%ProgramFiles(x86)%\\Google\\Chrome\\Application\\chrome.exe"
+) else if exist "%LocalAppData%\\Google\\Chrome\\Application\\chrome.exe" (
+    set "CHROME_PATH=%LocalAppData%\\Google\\Chrome\\Application\\chrome.exe"
+)
+
+:: If Chrome is found, run the app in elegant chromeless window mode (--app)
+if defined CHROME_PATH (
+    start "" "%CHROME_PATH%" --app="%~dp0index.html" --window-size=1280,820
+) else (
+    :: Fallback to default browser
+    start "" "%~dp0index.html"
+)
+exit
+`;
+
+try {
+  fs.writeFileSync(path.join(process.cwd(), 'dist/Запустить как Приложение.bat'), batContent, 'utf8');
+  console.log('Post-process: Successfully created Windows launcher .bat file!');
+} catch (e) {
+  console.error('Error writing .bat launcher file:', e);
+}
+
 console.log('Creating ZIP archive of the build...');
 try {
   // Use bestzip to package the dist contents

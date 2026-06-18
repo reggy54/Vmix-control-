@@ -4,6 +4,7 @@ import { Play, Pause, VolumeX, Volume2, RotateCcw, Droplet } from 'lucide-react'
 import { formatTime } from '../utils';
 
 interface Props {
+  key?: any;
   input: VMixInput;
   vmixUrl: string;
   isActive: boolean;
