@@ -18,7 +18,7 @@ import { Dashboard } from './components/Dashboard';
 import { ColourKeyConfig } from './components/ColourKeyConfig';
 import { StatusPanel } from './components/StatusPanel';
 import { TransitionPanel } from './components/TransitionPanel';
-import { formatTime, formatSeconds } from './utils';
+import { formatTime, formatSeconds, safeStorage } from './utils';
 
 
 
@@ -53,7 +53,54 @@ const MAIN_TABS = [
 ] as const;
 
 export default function App() {
-  const [url, setUrl] = useState(() => localStorage.getItem('vmix-url') || 'http://127.0.0.1:8088');
+  const [url, setUrl] = useState(() => safeStorage.getItem('vmix-url') || 'http://127.0.0.1:8088');
+  const [downloadingZip, setDownloadingZip] = useState(false);
+  const [downloadingHtml, setDownloadingHtml] = useState(false);
+  const [copyStatus, setCopyStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+
+  const secureDownload = async (filename: string, fileUrl: string, setProgress: React.Dispatch<React.SetStateAction<boolean>>) => {
+    setProgress(true);
+    try {
+      const response = await fetch(fileUrl);
+      if (!response.ok) throw new Error('Network response was not OK');
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(blobUrl);
+    } catch (err) {
+      console.error('Secure download fail:', err);
+      // Fallback
+      window.location.href = fileUrl;
+    } finally {
+      setProgress(false);
+    }
+  };
+
+  const handleCopyHtml = async () => {
+    setCopyStatus('loading');
+    try {
+      // Prefer the fully compiled, inlined, file:// safe single-file build
+      let response = await fetch('./index-compiled.html');
+      if (!response.ok) {
+        // Fallback to index.html if compilation hasn't completed yet
+        response = await fetch('./index.html');
+      }
+      if (!response.ok) throw new Error('Failed to fetch HTML template');
+      const text = await response.text();
+      await navigator.clipboard.writeText(text);
+      setCopyStatus('success');
+      setTimeout(() => setCopyStatus('idle'), 3000);
+    } catch (err) {
+      console.error('Copy HTML fail:', err);
+      setCopyStatus('error');
+      setTimeout(() => setCopyStatus('idle'), 3000);
+    }
+  };
   const [controller, setController] = useState<VMixController | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -71,7 +118,7 @@ export default function App() {
   const abortScanRef = useRef<boolean>(false);
   
   const [shortcuts, setShortcuts] = useState<Shortcut[]>(() => {
-    const saved = localStorage.getItem('vmix-shortcuts');
+    const saved = safeStorage.getItem('vmix-shortcuts');
     if (saved) return JSON.parse(saved);
     return [
       { id: '1', code: 'Space', command: 'Cut', value: '' },
@@ -86,30 +133,30 @@ export default function App() {
   
   const [mainTab, setMainTab] = useState<'dashboard' | 'inputs' | 'mixer' | 'titles' | 'lists' | 'macros' | 'ptz' | 'layers' | 'outputs' | 'image' | 'scripts' | 'data'>('inputs');
   const [macros, setMacros] = useState<{id: string, name: string, steps: {command: string, value: string, input: string, delay: number}[]}[]>(() => {
-    const m = localStorage.getItem('vmix-macros-list');
+    const m = safeStorage.getItem('vmix-macros-list');
     return m ? JSON.parse(m) : [];
   });
-  useEffect(() => localStorage.setItem('vmix-macros-list', JSON.stringify(macros)), [macros]);
+  useEffect(() => safeStorage.setItem('vmix-macros-list', JSON.stringify(macros)), [macros]);
 
   const [liveThumbnails, setLiveThumbnails] = useState(false);
   const [liveFps, setLiveFps] = useState(() => {
-    const s = localStorage.getItem('vmix-live-fps');
+    const s = safeStorage.getItem('vmix-live-fps');
     return s ? parseFloat(s) : 1;
   });
   const [useWebRTC, setUseWebRTC] = useState(() => {
-    const s = localStorage.getItem('vmix-use-webrtc');
+    const s = safeStorage.getItem('vmix-use-webrtc');
     return s ? s === 'true' : false;
   });
   const [pollRate, setPollRate] = useState(() => {
-    const s = localStorage.getItem('vmix-poll-rate');
+    const s = safeStorage.getItem('vmix-poll-rate');
     return s ? parseInt(s, 10) : 1000;
   });
   
   const [thumbnailTick, setThumbnailTick] = useState(0);
 
-  useEffect(() => localStorage.setItem('vmix-live-fps', liveFps.toString()), [liveFps]);
-  useEffect(() => localStorage.setItem('vmix-use-webrtc', useWebRTC.toString()), [useWebRTC]);
-  useEffect(() => localStorage.setItem('vmix-poll-rate', pollRate.toString()), [pollRate]);
+  useEffect(() => safeStorage.setItem('vmix-live-fps', liveFps.toString()), [liveFps]);
+  useEffect(() => safeStorage.setItem('vmix-use-webrtc', useWebRTC.toString()), [useWebRTC]);
+  useEffect(() => safeStorage.setItem('vmix-poll-rate', pollRate.toString()), [pollRate]);
 
   useEffect(() => {
     if (liveThumbnails && isConnected && !useWebRTC) {
@@ -123,7 +170,7 @@ export default function App() {
   const pollTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
-    localStorage.setItem('vmix-shortcuts', JSON.stringify(shortcuts));
+    safeStorage.setItem('vmix-shortcuts', JSON.stringify(shortcuts));
   }, [shortcuts]);
 
   useEffect(() => {
@@ -160,7 +207,7 @@ export default function App() {
     if (pollTimeoutRef.current) {
       clearTimeout(pollTimeoutRef.current);
     }
-    localStorage.setItem('vmix-url', url);
+    safeStorage.setItem('vmix-url', url);
     const newController = new VMixController(url);
     setController(newController);
     pollState(newController);
@@ -1056,29 +1103,90 @@ export default function App() {
               </div>
 
               <div>
-                <h3 className="text-orange-400 font-bold text-xs uppercase tracking-wider mb-2">Apps & Install (Windows / Android)</h3>
+                <h3 className="text-orange-400 font-bold text-xs uppercase tracking-wider mb-2">Приложение и Установка (Установка на ПК / Телефон)</h3>
                 <div className="text-sm text-gray-300 space-y-4">
                   <div>
-                    <strong>1. Browser Install (PWA):</strong> This web application can be installed directly to your device!
-                    <ul className="list-disc list-inside mt-1 text-xs text-gray-400 space-y-1">
-                       <li><strong>Mobile (Android / iOS):</strong> Open this page in Chrome or Safari, tap the Share or 3-dot menu, and select <strong>"Add to Home screen"</strong>. It will act as a native fullscreen app.</li>
-                       <li><strong>Windows (Chrome/Edge):</strong> Click the "App available" icon in the right side of your URL bar, or open the browser menu and select "Install vMix Web Controller".</li>
+                    <strong className="text-orange-300 font-semibold block mb-1">1. Как запустить на компьютере ОФФЛАЙН (локально):</strong>
+                    <p className="text-xs text-gray-400 leading-relaxed mb-2">
+                      Приложение полностью оптимизировано для работы напрямую из локальной папки на компьютере. Оно больше не требует локального сервера и не вызывает блокировок CORS (эффект белого экрана исправлен!).
+                    </p>
+
+                    {/* Troubleshooting dynamic __cookie_check tip */}
+                    <div className="bg-amber-900/10 border border-amber-800/30 p-3 rounded text-xs text-amber-200/90 leading-relaxed mb-3">
+                      <strong className="text-amber-400 block mb-1">⚠️ Если скачивается файл «__cookie_check» вместо ZIP или HTML:</strong>
+                      Это происходит из-за того, что браузер блокирует скачивание файлов внутри встроенного превью-окна (iframe) Google AI Studio. Чтобы скачать файлы без проблем:
+                      <ol className="list-decimal list-inside mt-1.5 space-y-1">
+                        <li>Нажмите кнопку <strong className="text-white">“Открыть в новой вкладке”</strong> (стрелочка в правом верхнем углу экрана).</li>
+                        <li>На новой вкладке скачивание сработает мгновенно и правильно!</li>
+                        <li>Или используйте кнопку <strong className="text-white">«Скопировать код»</strong> ниже – это работает всегда и везде!</li>
+                      </ol>
+                    </div>
+
+                    <div className="bg-[#111] p-3 rounded border border-[#333] mb-3 space-y-3">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#222]">
+                        <div>
+                          <strong className="text-white text-xs block">Скачать готовый ZIP-архив:</strong>
+                          <p className="text-[11px] text-gray-400 mt-0.5 font-sans leading-relaxed">
+                            Полный комплект (PWA, манифест, иконки PWA + файл index.html). Скачайте ZIP, полностью распакуйте его и кликните дважды по <code className="text-white">index.html</code>.
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => secureDownload('vmix-app.zip', './vmix-app.zip', setDownloadingZip)}
+                          disabled={downloadingZip}
+                          className="bg-orange-600 hover:bg-orange-500 disabled:bg-orange-800 disabled:text-gray-400 text-white font-bold text-xs px-4 py-2 rounded uppercase text-center transition-colors shrink-0 flex items-center justify-center min-w-[140px]"
+                        >
+                          {downloadingZip ? 'Скачивание...' : 'Скачать ZIP'}
+                        </button>
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#222]">
+                        <div>
+                          <strong className="text-white text-xs block">Скачать только один файл App (HTML):</strong>
+                          <p className="text-[11px] text-gray-400 mt-0.5 font-sans leading-relaxed">
+                            Удобный запуск в один клик. Так как приложение полностью самодостаточное, вы можете скачать один-единственный файл <code className="text-white">index.html</code> и запускать его на ПК из любого места.
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => secureDownload('index.html', './index-compiled.html', setDownloadingHtml)}
+                          disabled={downloadingHtml}
+                          className="bg-[#2a2a2a] hover:bg-[#3a3a3a] border border-[#444] disabled:text-gray-500 text-white font-bold text-xs px-4 py-2 rounded uppercase text-center transition-colors shrink-0 flex items-center justify-center min-w-[140px]"
+                        >
+                          {downloadingHtml ? 'Скачивание...' : 'Скачать HTML'}
+                        </button>
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div>
+                          <strong className="text-white text-xs block">Альтернатива (Скопировать весь код в 1 клик):</strong>
+                          <p className="text-[11px] text-gray-400 mt-0.5 font-sans leading-relaxed">
+                            Если встроенное скачивание блокируется Вашим браузером, просто нажмите кнопку справа, затем создайте у себя на ПК пустой текстовый файл, переименуйте в <code className="text-white">index.html</code>, откройте блокнотом и вставьте скопированный код!
+                          </p>
+                        </div>
+                        <button
+                          onClick={handleCopyHtml}
+                          disabled={copyStatus === 'loading'}
+                          className="bg-[#1f2937] hover:bg-[#374151] border border-gray-600 disabled:text-gray-500 text-white font-bold text-xs px-4 py-2 rounded uppercase text-center transition-colors shrink-0 flex items-center justify-center min-w-[140px]"
+                        >
+                          {copyStatus === 'loading' && 'Копирование...'}
+                          {copyStatus === 'idle' && 'Скопировать код'}
+                          {copyStatus === 'success' && 'Скопировано! 👍'}
+                          {copyStatus === 'error' && 'Ошибка копирования'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <strong className="text-orange-300 font-semibold block mb-1">2. Как установить на телефон (как отдельное PWA-приложение):</strong>
+                    <p className="text-xs text-gray-400 leading-relaxed">
+                      Вы можете установить приложение на мобильный телефон прямо через браузер. Оно будет запускаться на весь экран, иметь собственный ярлык в меню приложений и работать оффлайн:
+                    </p>
+                    <ul className="list-disc list-inside mt-2 text-xs text-gray-400 space-y-1">
+                       <li><strong>Android (через Chrome):</strong> Откройте сайт, нажмите на значок меню (три точки справа сверху) и выберите пункт <strong>«Добавить на главный экран»</strong> или <strong>«Установить приложение»</strong>.</li>
+                       <li><strong>iOS / iPhone (через Safari):</strong> Откройте сайт, нажмите на кнопку <strong>«Поделиться»</strong> (квадрат со стрелкой вверх внизу экрана) и выберите пункт <strong>«На экран "Домой"»</strong>.</li>
                     </ul>
                   </div>
 
-                  <div className="bg-[#111] p-3 rounded border border-[#333]">
-                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                      <div>
-                        <strong className="text-white">2. Download for Local Network:</strong>
-                        <p className="text-xs text-gray-400 mt-1">
-                          If you are having connection issues due to HTTPS/HTTP mixed content, you can download this entire app, extract it, and run it locally on your own computer or server.
-                        </p>
-                      </div>
-                      <a href="/vmix-app.zip" download className="bg-orange-600 hover:bg-orange-500 text-white font-bold text-xs px-4 py-2 rounded uppercase text-center transition-colors shrink-0 flex items-center justify-center">
-                         Download Static Web App
-                      </a>
-                    </div>
-                  </div>
                 </div>
               </div>
 

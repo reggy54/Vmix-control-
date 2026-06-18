@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { VMixState } from '../types';
 import { Play, Save, Trash2, Edit3, X } from 'lucide-react';
+import { safeStorage } from '../utils';
 
 interface Props {
   vMixState: VMixState | null;
@@ -17,7 +18,7 @@ export function TitleEditor({ vMixState, sendCommand }: Props) {
   const [selectedInput, setSelectedInput] = useState<number | null>(null);
   
   const [presets, setPresets] = useState<Record<string, TitlePreset[]>>(() => {
-    const saved = localStorage.getItem('vmix-title-presets');
+    const saved = safeStorage.getItem('vmix-title-presets');
     return saved ? JSON.parse(saved) : {};
   });
 
@@ -25,7 +26,7 @@ export function TitleEditor({ vMixState, sendCommand }: Props) {
   const [draftPreset, setDraftPreset] = useState<{name: string, value: string}[]>([]);
 
   useEffect(() => {
-    localStorage.setItem('vmix-title-presets', JSON.stringify(presets));
+    safeStorage.setItem('vmix-title-presets', JSON.stringify(presets));
   }, [presets]);
 
   if (!vMixState) {

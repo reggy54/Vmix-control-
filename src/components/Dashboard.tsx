@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { VMixState } from '../types';
 import { InputCard } from './InputCard';
 import { Settings, X, Plus } from 'lucide-react';
+import { safeStorage } from '../utils';
 
 interface Props {
   vMixState: VMixState | null;
@@ -20,14 +21,14 @@ interface DashboardConfig {
 
 export function Dashboard({ vMixState, sendCommand, macros, playMacro, vmixUrl, onColourKeyConfig }: Props) {
   const [config, setConfig] = useState<DashboardConfig>(() => {
-    const saved = localStorage.getItem('vmix-dashboard-config');
+    const saved = safeStorage.getItem('vmix-dashboard-config');
     return saved ? JSON.parse(saved) : { pinnedInputs: [], pinnedMacros: [], pinnedTitle: null };
   });
 
   const [isConfiguring, setIsConfiguring] = useState(false);
 
   useEffect(() => {
-    localStorage.setItem('vmix-dashboard-config', JSON.stringify(config));
+    safeStorage.setItem('vmix-dashboard-config', JSON.stringify(config));
   }, [config]);
 
   if (!vMixState) {
